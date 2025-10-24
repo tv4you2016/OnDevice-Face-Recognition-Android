@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.ml.shubham0204.facenet_android"
+    namespace = "com.ioline.ithink.ai"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.ml.shubham0204.facenet_android"
+        applicationId = "com.ioline.shubham0204.facenet_android"
         minSdk = 26
         targetSdk = 34
         versionCode = 1
