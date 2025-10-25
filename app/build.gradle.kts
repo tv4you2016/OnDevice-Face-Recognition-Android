@@ -7,12 +7,12 @@ plugins {
 
 android {
     namespace = "com.ioline.ithink.ai"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.ioline.shubham0204.facenet_android"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 36
         versionCode = 1
         versionName = "0.0.1"
 
@@ -83,8 +83,8 @@ dependencies {
     implementation(libs.androidx.ui.text.google.fonts)
 
     // ObjectBox - vector database
-    debugImplementation("io.objectbox:objectbox-android-objectbrowser:4.0.0")
-    releaseImplementation("io.objectbox:objectbox-android:4.0.0")
+    debugImplementation(libs.objectbox.android.objectbrowser)
+    releaseImplementation(libs.objectbox.android)
 
     // dependency injection
     implementation(libs.koin.android)
@@ -119,3 +119,8 @@ dependencies {
 }
 
 apply(plugin = "io.objectbox")
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
