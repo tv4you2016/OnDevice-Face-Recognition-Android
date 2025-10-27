@@ -1,6 +1,7 @@
 package com.ioline.ithink.ai.presentation.screens.detect_screen
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.activity.compose.ManagedActivityResultLauncher
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -12,13 +13,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -30,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -42,12 +42,12 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.ioline.ithink.ai.R
 import com.ioline.ithink.ai.presentation.components.AppAlertDialog
 import com.ioline.ithink.ai.presentation.components.DelayedVisibility
-import com.ioline.ithink.ai.presentation.components.FaceDetectionOverlay
+import com.ioline.ithink.ai.presentation.components.FaceDetectionService
 import com.ioline.ithink.ai.presentation.components.createAlertDialog
 import com.ioline.ithink.ai.presentation.theme.FaceNetAndroidTheme
 import org.koin.androidx.compose.koinViewModel
@@ -78,20 +78,6 @@ fun DetectScreen(onOpenFaceListClick: (() -> Unit)) {
                                 contentDescription = "Open Face List",
                             )
                         }
-                        IconButton(
-                            onClick = {
-                                if (cameraFacing.intValue == CameraSelector.LENS_FACING_BACK) {
-                                    cameraFacing.intValue = CameraSelector.LENS_FACING_FRONT
-                                } else {
-                                    cameraFacing.intValue = CameraSelector.LENS_FACING_BACK
-                                }
-                            },
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Cameraswitch,
-                                contentDescription = "Switch Camera",
-                            )
-                        }
                     },
                 )
             },
@@ -106,33 +92,6 @@ private fun ScreenUI() {
     val viewModel: DetectScreenViewModel = koinViewModel()
     Box {
         Camera(viewModel)
-        DelayedVisibility(viewModel.getNumPeople() > 0) {
-            val metrics by remember { viewModel.faceDetectionMetricsState }
-            Column {
-                Text(
-                    text = "Recognition on ${viewModel.getNumPeople()} face(s)",
-                    color = Color.White,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center,
-                )
-                Spacer(modifier = Modifier.weight(1f))
-                metrics?.let {
-                    Text(
-                        text =
-                            "face detection: ${it.timeFaceDetection} ms" +
-                                "\nface embedding: ${it.timeFaceEmbedding} ms" +
-                                "\nvector search: ${it.timeVectorSearch} ms\n" +
-                                "spoof detection: ${it.timeFaceSpoofDetection} ms",
-                        color = Color.White,
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(bottom = 24.dp),
-                        textAlign = TextAlign.Center,
-                    )
-                }
-            }
-        }
         DelayedVisibility(viewModel.getNumPeople() == 0L) {
             Text(
                 text = "No images in database",
@@ -157,8 +116,6 @@ private fun Camera(viewModel: DetectScreenViewModel) {
     cameraPermissionStatus.value =
         ActivityCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
         PackageManager.PERMISSION_GRANTED
-    val cameraFacing by remember { cameraFacing }
-    val lifecycleOwner = LocalLifecycleOwner.current
 
     cameraPermissionLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
@@ -168,7 +125,8 @@ private fun Camera(viewModel: DetectScreenViewModel) {
                 camaraPermissionDialog()
             }
         }
-
+/*
+// interface visula original
     DelayedVisibility(cameraPermissionStatus.value) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
@@ -176,6 +134,13 @@ private fun Camera(viewModel: DetectScreenViewModel) {
             update = { it.initializeCamera(cameraFacing) },
         )
     }
+    */
+
+    LaunchedEffect(Unit) {
+        val intent = Intent(context, FaceDetectionService::class.java)
+        ContextCompat.startForegroundService(context, intent)
+    }
+
     DelayedVisibility(!cameraPermissionStatus.value) {
         Column(
             modifier = Modifier.fillMaxSize(),

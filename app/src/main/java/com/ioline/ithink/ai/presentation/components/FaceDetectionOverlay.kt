@@ -8,6 +8,7 @@ import android.graphics.Color
 import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.RectF
+import android.util.Log
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.widget.FrameLayout
@@ -19,6 +20,7 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.createBitmap
 import androidx.core.graphics.toRectF
 import androidx.core.view.doOnLayout
 import androidx.lifecycle.LifecycleOwner
@@ -55,7 +57,7 @@ class FaceDetectionOverlay(
     private lateinit var boundingBoxOverlay: BoundingBoxOverlay
     private lateinit var previewView: PreviewView
 
-    var predictions: Array<Prediction> = arrayOf()
+
 
     init {
         initializeCamera(cameraFacing)
@@ -124,11 +126,7 @@ class FaceDetectionOverlay(
 
             // Transform android.net.Image to Bitmap
             frameBitmap =
-                Bitmap.createBitmap(
-                    image.image!!.width,
-                    image.image!!.height,
-                    Bitmap.Config.ARGB_8888,
-                )
+                createBitmap(image.image!!.width, image.image!!.height)
             frameBitmap.copyPixelsFromBuffer(image.planes[0].buffer)
 
             // Configure frameHeight and frameWidth for output2overlay transformation matrix
@@ -170,7 +168,7 @@ class FaceDetectionOverlay(
                 isBoundingBoxTransformedInitialized = true
             }
             CoroutineScope(Dispatchers.Default).launch {
-                val predictions = ArrayList<Prediction>()
+
                 val (metrics, results) =
                     viewModel.imageVectorUseCase.getNearestPersonName(
                         frameBitmap,
@@ -179,6 +177,8 @@ class FaceDetectionOverlay(
                 results.forEach { (name, boundingBox, spoofResult) ->
                     val box = boundingBox.toRectF()
                     var personName = name
+                    Log.i("IOLine", "Name:$personName")
+
                     if (viewModel.getNumPeople().toInt() == 0) {
                         personName = ""
                     }
@@ -186,11 +186,11 @@ class FaceDetectionOverlay(
                         personName = "$personName (Spoof: ${spoofResult.score})"
                     }
                     boundingBoxTransform.mapRect(box)
-                    predictions.add(Prediction(box, personName))
+
                 }
                 withContext(Dispatchers.Main) {
                     viewModel.faceDetectionMetricsState.value = metrics
-                    this@FaceDetectionOverlay.predictions = predictions.toTypedArray()
+
                     boundingBoxOverlay.invalidate()
                     isProcessing = false
                 }
@@ -198,26 +198,12 @@ class FaceDetectionOverlay(
             image.close()
         }
 
-    data class Prediction(
-        var bbox: RectF,
-        var label: String,
-    )
+
 
     inner class BoundingBoxOverlay(
         context: Context,
     ) : SurfaceView(context),
         SurfaceHolder.Callback {
-        private val boxPaint =
-            Paint().apply {
-                color = Color.parseColor("#4D90caf9")
-                style = Paint.Style.FILL
-            }
-        private val textPaint =
-            Paint().apply {
-                strokeWidth = 2.0f
-                textSize = 36f
-                color = Color.WHITE
-            }
 
         override fun surfaceCreated(holder: SurfaceHolder) {}
 
@@ -231,10 +217,7 @@ class FaceDetectionOverlay(
         override fun surfaceDestroyed(holder: SurfaceHolder) {}
 
         override fun onDraw(canvas: Canvas) {
-            predictions.forEach {
-                canvas.drawRoundRect(it.bbox, 16f, 16f, boxPaint)
-                canvas.drawText(it.label, it.bbox.centerX(), it.bbox.centerY(), textPaint)
-            }
+
         }
     }
 }
