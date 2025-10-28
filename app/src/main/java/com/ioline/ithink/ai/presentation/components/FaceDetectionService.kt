@@ -5,6 +5,7 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Matrix
@@ -19,6 +20,7 @@ import com.ioline.ithink.ai.domain.PersonUseCase
 import kotlinx.coroutines.*
 import org.koin.android.ext.android.inject
 import java.util.concurrent.Executors
+import androidx.core.graphics.createBitmap
 
 @ExperimentalGetImage
 class FaceDetectionService : Service() {
@@ -33,7 +35,21 @@ class FaceDetectionService : Service() {
 
     private val coroutineScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
+
+
+    // 🔹 Guarda referência ao cameraProvider
+    private var cameraProvider: ProcessCameraProvider? = null
+
     override fun onBind(intent: Intent?): IBinder? = null
+
+
+    companion object {
+        fun stop(context: Context) {
+            val intent = Intent(context, FaceDetectionService::class.java)
+            context.stopService(intent)
+        }
+    }
+
 
     override fun onCreate() {
         super.onCreate()
@@ -68,7 +84,7 @@ class FaceDetectionService : Service() {
         val executor = ContextCompat.getMainExecutor(this)
 
         cameraProviderFuture.addListener({
-            val cameraProvider = cameraProviderFuture.get()
+            cameraProvider = cameraProviderFuture.get()
             val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
 
             val frameAnalyzer = ImageAnalysis.Builder()
@@ -78,8 +94,8 @@ class FaceDetectionService : Service() {
 
             frameAnalyzer.setAnalyzer(Executors.newSingleThreadExecutor(), analyzer)
 
-            cameraProvider.unbindAll()
-            cameraProvider.bindToLifecycle(/* lifecycleOwner = */ FakeLifecycleOwner(), cameraSelector, frameAnalyzer)
+            cameraProvider?.unbindAll()
+            cameraProvider?.bindToLifecycle(/* lifecycleOwner = */ FakeLifecycleOwner(), cameraSelector, frameAnalyzer)
         }, executor)
     }
 
@@ -91,7 +107,7 @@ class FaceDetectionService : Service() {
 
         isProcessing = true
 
-        val bitmap = Bitmap.createBitmap(image.image!!.width, image.image!!.height, Bitmap.Config.ARGB_8888)
+        val bitmap = createBitmap(image.image!!.width, image.image!!.height)
         bitmap.copyPixelsFromBuffer(image.planes[0].buffer)
 
         if (!isImageTransformInitialized) {
@@ -125,8 +141,17 @@ class FaceDetectionService : Service() {
         image.close()
     }
 
+
     override fun onDestroy() {
         super.onDestroy()
+
+        // 🔹 Fecha a câmera ao parar o serviço
+        cameraProvider?.unbindAll()
+        cameraProvider = null
+
+        stopForeground(STOP_FOREGROUND_REMOVE)
         coroutineScope.cancel()
+        Log.i("FaceDetectionService", "Serviço parado")
+
     }
 }

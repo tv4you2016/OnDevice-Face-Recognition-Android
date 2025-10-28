@@ -17,6 +17,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import com.ioline.ithink.ai.MyDeviceAdminReceiver
@@ -26,11 +27,18 @@ class PermissionManager(
     private val onAllPermissionsGranted: () -> Unit // callback para quando tudo estiver pronto
 ) {
 
-    private val requiredPermissions = arrayOf(
-        Manifest.permission.CAMERA,
-        Manifest.permission.READ_MEDIA_IMAGES,
-        Manifest.permission.READ_MEDIA_VIDEO
-    )
+    private val requiredPermissions = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        arrayOf(
+            Manifest.permission.CAMERA,
+            Manifest.permission.READ_MEDIA_IMAGES,
+            Manifest.permission.READ_MEDIA_VIDEO
+        )
+    } else {
+        arrayOf(
+            Manifest.permission.CAMERA,
+            Manifest.permission.READ_EXTERNAL_STORAGE
+        )
+    }
 
     // Launcher para permissões normais
     private val permissionsLauncher: ActivityResultLauncher<Array<String>> =

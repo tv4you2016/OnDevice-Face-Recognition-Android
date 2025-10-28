@@ -17,6 +17,7 @@ class WakeLock {
             wakeLock.release()
         }
     }
+
     fun isScreenOn(context: Context): Boolean {
         val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
         return powerManager.isInteractive
