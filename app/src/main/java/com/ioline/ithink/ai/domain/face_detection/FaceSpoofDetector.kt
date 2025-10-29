@@ -20,6 +20,7 @@ import org.tensorflow.lite.support.image.TensorImage
 import kotlin.math.exp
 import kotlin.time.DurationUnit
 import kotlin.time.measureTime
+import androidx.core.graphics.scale
 
 /*
 
@@ -178,7 +179,7 @@ class FaceSpoofDetector(
                 scaledBox.width(),
                 scaledBox.height(),
             )
-        return Bitmap.createScaledBitmap(croppedBitmap, targetWidth, targetHeight, true)
+        return croppedBitmap.scale(targetWidth, targetHeight)
     }
 
     private fun getScaledBox(

@@ -34,6 +34,10 @@
 
     <uses-permission android:name="android.permission.DEVICE_POWER" tools:ignore="ProtectedPermissions" />
 
+    <queries>
+        <!-- Para permitir procurar este app -->
+        <package android:name="app.ioline.ithink" />
+    </queries>
 
     <application
         android:name=".MainApplication"

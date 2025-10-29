@@ -40,8 +40,7 @@ class MainActivity : ComponentActivity() {
                     startDestination = "detect"
                 ) {
 
-                    //composable("add-face") { AddFaceScreen { navController.navigateUp() } }
-
+                    composable("add-face") { AddFaceScreen { navController.navigateUp() } }
                     composable("detect") { DetectScreen { navController.navigate("face-list") } }
                     composable("face-list") {
                         FaceListScreen(
@@ -60,10 +59,10 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
                 NavHost(navController = navController, startDestination = "main_layout") {
                     composable("main_layout") {
-                        MainLayout()
+                        MainLayout(navController)
                     }
 
-
+                    composable("add-face") { AddFaceScreen { navController.navigateUp() } }
                     composable("detect") { DetectScreen { navController.navigate("face-list") } }
                     composable("face-list") {
                         FaceListScreen(
