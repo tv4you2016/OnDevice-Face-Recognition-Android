@@ -47,4 +47,10 @@ class AddFaceScreenViewModel(
             isProcessingImages.value = false
         }
     }
+
+    fun clearState() {
+        personNameState.value = ""
+        selectedImageURIs.value = emptyList()
+        numImagesProcessed.value = 0
+    }
 }

@@ -94,7 +94,7 @@ private fun ScreenUI() {
         Camera(viewModel)
         DelayedVisibility(viewModel.getNumPeople() == 0L) {
             Text(
-                text = "No images in database",
+                text = stringResource(id = R.string.no_faces),
                 color = Color.White,
                 modifier =
                     Modifier

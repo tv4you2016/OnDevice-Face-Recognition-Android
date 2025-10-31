@@ -26,51 +26,23 @@ class MainActivity : ComponentActivity() {
 
         WakeLock().unlockScreen(this@MainActivity)
 
-
-
-
         // Inicializa PermissionManager com callback
         permissionManager = PermissionManager(this) {
-            // Callback chamado quando tudo estiver pronto ? libera o layout
-/*
             setContent {
-                val navController = rememberNavController()
-                NavHost(
-                    navController = navController,
-                    startDestination = "detect"
-                ) {
 
-                    composable("add-face") { AddFaceScreen { navController.navigateUp() } }
-                    composable("detect") { DetectScreen { navController.navigate("face-list") } }
-                    composable("face-list") {
-                        FaceListScreen(
-                            onNavigateBack = { navController.navigateUp() },
-                            onAddFaceClick = { navController.navigate("add-face") }
-                        )
+                FaceListScreen(
+                    onAddFaceClick = {
                     }
+                )
 
-
-                }
-            }
-*/
-
-
-            setContent {
                 val navController = rememberNavController()
                 NavHost(navController = navController, startDestination = "main_layout") {
                     composable("main_layout") {
                         MainLayout(navController)
                     }
 
-                    composable("add-face") { AddFaceScreen { navController.navigateUp() } }
-                    composable("detect") { DetectScreen { navController.navigate("face-list") } }
-                    composable("face-list") {
-                        FaceListScreen(
-                            onNavigateBack = { navController.navigateUp() },
-                            onAddFaceClick = { navController.navigate("add-face") }
-                        )
-                    }
                 }
+
             }
 
 

@@ -6,6 +6,11 @@ import android.content.Intent
 import android.os.Build
 import android.util.Log
 import androidx.camera.core.ExperimentalGetImage
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -15,12 +20,18 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddReaction
+import androidx.compose.material.icons.filled.Face
+import androidx.compose.material.icons.filled.FaceRetouchingNatural
+import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -30,14 +41,10 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
 import com.ioline.ithink.ai.ProximityService
-import com.ioline.ithink.ai.presentation.components.AppProgressDialog
 import com.ioline.ithink.ai.presentation.components.FaceDetectionService
-import com.ioline.ithink.ai.presentation.components.setProgressDialogText
-import com.ioline.ithink.ai.presentation.components.showProgressDialog
-import androidx.compose.ui.res.painterResource
 import com.ioline.aicamera.utils.AppUtils.openTargetApp
-import com.ioline.aicamera.utils.AppUtils.openlockNowApp
 import com.ioline.ithink.ai.R
+import com.ioline.ithink.ai.presentation.screens.add_face.AddFaceScreen
 import com.ioline.ithink.ai.presentation.screens.face_list.FaceListScreen
 
 
@@ -53,8 +60,8 @@ enum class Option {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainLayout(navController: NavController) {
-
-    var selectedOption by remember { mutableStateOf<Option?>(null) }
+    var overlayVisible by remember { mutableStateOf(false) }  // Declarando o estado de overlay no MainLayout
+    val context = LocalContext.current
     var expandedOption by remember { mutableStateOf<Option?>(null) }
 
 
@@ -62,164 +69,289 @@ fun MainLayout(navController: NavController) {
         topBar = {
             TopAppBar(
                 title = { Text("MordomusTABMNG") }
-
             )
         },
-        floatingActionButton = {  // ✅ mover para o Scaffold
-            val context = LocalContext.current  // ✅ obtém o contexto Android real
+        floatingActionButton = {
+            val context = LocalContext.current
 
             FloatingActionButton(
                 onClick = {
-                   // openlockNowApp(context)
-                    openTargetApp(context,false)
-
-                }, // exemplo de ação
-                containerColor = Color.White, // Azul, por exemplo
-
+                    openTargetApp(context, false)
+                },
+                containerColor = Color.White
             ) {
                 Icon(
                     painter = painterResource(id = R.drawable.ic_mordomus_ithink),
-                    contentDescription = "Add a new face",
-                    tint = Color.Unspecified, // mantém cor original
-                    modifier = Modifier.size(50.dp), // ajusta o tamanho
-
-
-
+                    contentDescription = "Open App iTHINK",
+                    tint = Color.Unspecified,
+                    modifier = Modifier.size(50.dp),
                 )
             }
         }
     ) { paddingValues ->
-        Column(
+        Box(
             modifier = Modifier
                 .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
                 .fillMaxSize()
-                //.padding(16.dp)
         ) {
-            val context = LocalContext.current  // ✅ obtém o contexto Android real
+            Column(
+                modifier = Modifier
+                    .padding(10.dp)
+                    .verticalScroll(rememberScrollState())
+                    .fillMaxSize()
+            ) {
+                var proximityEnabled by remember { mutableStateOf(true) }
+                var facialEnabled by remember { mutableStateOf(false) }
+                var cameraEnabled by remember { mutableStateOf(false) }
 
-            var proximityEnabled by remember { mutableStateOf(true) }
-            var facialEnabled by remember { mutableStateOf(false) }
-            var cameraEnabled by remember { mutableStateOf(false) }
+                // Motion Detection Section
+                SectionTitle("Detection:")
 
-            // Motion Detection Section
-            SectionTitle("Detection:")
-
-
-            SettingItem(
-                title = "Proximity",
-                description = null,
-                enabled = proximityEnabled,
-                onToggleChange = { isChecked ->
-                    // Atualiza o estado
-                    proximityEnabled = isChecked
-                    facialEnabled = false
-                    cameraEnabled =  false
-
-                    // Código que queres executar quando o switch mudar
-                    if (isChecked) {
-
-                        FaceDetectionService.stop(context)
+                SettingItem(
+                    title = "Proximity",
+                    description = null,
+                    enabled = proximityEnabled,
+                    onToggleChange = { isChecked ->
+                        proximityEnabled = isChecked
+                        facialEnabled = false
+                        cameraEnabled = false
 
 
-                        println("Proximity Detect Enabled")
-                        // ou chama uma função, inicia serviço, etc.
-                        val intent = Intent(context, ProximityService::class.java)
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                            context.startForegroundService(intent)
+                        if (isChecked) {
+                            FaceDetectionService.stop(context)
+                            val intent = Intent(context, ProximityService::class.java)
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                context.startForegroundService(intent)
+                            } else {
+                                context.startService(intent)
+                            }
                         } else {
-                            context.startService(intent)
+                            context.stopService(Intent(context, ProximityService::class.java))
                         }
-
-                    } else {
-                        println("Proximity Detect Disabled")
-                        context.stopService(Intent(context, ProximityService::class.java))
-
+                    },
+                    toggleVisible = true,
+                    toggleEnabled = true,
+                    option = Option.ProximityDetection,
+                    iconImage = Icons.Default.Sensors,
+                    onAddFaceClick = {
+                        // Alterando o estado do overlay dentro do contexto composable
+                        overlayVisible = true  // Alterando o estado no MainLayout
+                    },
+                    expandedOption = expandedOption,
+                    onExpandChange = { selected ->
+                        expandedOption = if (expandedOption == selected) null else selected
                     }
-                },
-                toggleVisible = true,
-                toggleEnabled = true,
-                option = Option.ProximityDetection,  // <- passa a opção
-                expandedOption = expandedOption,
-                onExpand = { option ->
-                    expandedOption = if (expandedOption == option) null else option
-                }
-            )
+                )
+
+                SettingItem(
+                    title = "Facial Detect",
+                    description = null,
+                    enabled = facialEnabled,
+                    onToggleChange = { isChecked ->
+                        facialEnabled = isChecked
+                        proximityEnabled = false
+                        cameraEnabled = false
 
 
-            SettingItem(
-                title = "Facial Detect",
-                description = null,
-                enabled = facialEnabled,
-                onToggleChange = { isChecked ->
-                    // Atualiza o estado
-                    facialEnabled = isChecked
-                    proximityEnabled = false
-                    cameraEnabled =  false
 
-                    // Código que queres executar quando o switch mudar
-                    if (isChecked) {
-                        println("Facial Detect Enabled")
-
-
-                        context.stopService(Intent(context, ProximityService::class.java))
-
-                        val intent = Intent(context, FaceDetectionService::class.java)
-                        ContextCompat.startForegroundService(context, intent)
-
-                        //navController.navigate("face-list") // ou outra tela
-                    } else {
-                        println("Facial Detect Disabled")
-
-
+                        if (isChecked) {
+                            context.stopService(Intent(context, ProximityService::class.java))
+                            val intent = Intent(context, FaceDetectionService::class.java)
+                            ContextCompat.startForegroundService(context, intent)
+                        } else {
+                            FaceDetectionService.stop(context)
+                        }
+                    },
+                    toggleVisible = true,
+                    toggleEnabled = true,
+                    option = Option.FacialDetection,
+                    iconImage = Icons.Default.FaceRetouchingNatural,
+                    onAddFaceClick = {
+                        // Alterando o estado do overlay dentro do contexto composable
+                        overlayVisible = true  // Alterando o estado no MainLayout
+                    },
+                    expandedOption = expandedOption,
+                    onExpandChange = { selected ->
+                        expandedOption = if (expandedOption == selected) null else selected
                     }
-                },
-                toggleVisible = true,
-                toggleEnabled = true,
-                option = Option.FacialDetection,  // <- passa a opção
-                expandedOption = expandedOption,
-                onExpand = { option ->
-                    expandedOption = if (expandedOption == option) null else option
-                }
-            )
+                )
 
-            SettingItem(
-                title = "Camera movement",
-                description = null,
-                enabled = cameraEnabled,
-                onToggleChange = { isChecked ->
-                    // Atualiza o estado
-                    cameraEnabled = isChecked
-                    proximityEnabled = false
-                    facialEnabled =  false
-
-                    // Código que queres executar quando o switch mudar
-                    if (isChecked) {
-                        println("Camera Detect Enabled")
-
-                        FaceDetectionService.stop(context)
-                        context.stopService(Intent(context, ProximityService::class.java))
-
-                    } else {
-                        println("Camera Detect Disabled")
+                SettingItem(
+                    title = "Camera movement",
+                    description = null,
+                    enabled = cameraEnabled,
+                    onToggleChange = { isChecked ->
+                        cameraEnabled = isChecked
+                        proximityEnabled = false
+                        facialEnabled = false
 
 
+                        if (isChecked) {
+                            FaceDetectionService.stop(context)
+                            context.stopService(Intent(context, ProximityService::class.java))
+                        }
+                    },
+                    toggleVisible = true,
+                    toggleEnabled = true,
+                    option = Option.CameraDetection,
+                    iconImage = Icons.Default.Face,
+                    onAddFaceClick = {
+                        // Alterando o estado do overlay dentro do contexto composable
+                        overlayVisible = true  // Alterando o estado no MainLayout
+                    },
+                    expandedOption = expandedOption,
+                    onExpandChange = { selected ->
+                        expandedOption = if (expandedOption == selected) null else selected
                     }
-                },
-                toggleVisible = true,
-                toggleEnabled = true,
-                option = Option.CameraDetection,  // <- passa a opção
-                expandedOption = expandedOption,
-                onExpand = { option ->
-                    expandedOption = if (expandedOption == option) null else option
-                }
-            )
+                )
+            }
 
-
-
+            // Exibir overlay se necessário
+            if (overlayVisible) {
+                FullscreenOverlay(
+                    onDismiss = { overlayVisible = false }
+                )
+            }
         }
     }
 }
+
+// Componente SettingItem modificado para receber 'overlayVisible' e 'onAddFaceClick'
+@Composable
+fun SettingItem(
+    title: String,
+    description: String?,
+    enabled: Boolean,
+    onToggleChange: ((Boolean) -> Unit)?,
+    option: Option,
+    toggleVisible: Boolean,
+    toggleEnabled: Boolean = true,
+    borderColor: Color = Color(0xFF1E88E5),
+    borderWidth: Dp = 1.dp,
+    cornerRadius: Dp = 12.dp,
+    shadowElevation: Dp = 4.dp,
+    iconImage: ImageVector,
+    onAddFaceClick: () -> Unit,
+    expandedOption: Option?,                // estado global vindo do MainLayout
+    onExpandChange: (Option?) -> Unit       // função para alterar o expandido
+) {
+    val isExpanded = expandedOption == option
+    var showFaceList by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+            .shadow(
+                elevation = shadowElevation,
+                shape = RoundedCornerShape(cornerRadius)
+            )
+            .background(Color.White, RoundedCornerShape(cornerRadius))
+            .border(borderWidth, borderColor, RoundedCornerShape(cornerRadius))
+            .clickable {
+                // 👇 Aqui está a correção principal:
+                if (isExpanded) {
+                    onExpandChange(null) // fecha se já estava aberto
+                } else {
+                    onExpandChange(option) // abre este e fecha os outros
+                    if (option == Option.FacialDetection) {
+                        showFaceList = true
+                    }
+                }
+            }
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
+                Icon(
+                    imageVector = iconImage,
+                    contentDescription = "Open Face List",
+                    modifier = Modifier.padding(end = 16.dp)
+                )
+                Text(
+                    text = title,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    maxLines = 1
+                )
+            }
+
+            if (toggleVisible && onToggleChange != null) {
+                Switch(
+                    checked = enabled,
+                    onCheckedChange = onToggleChange,
+                    enabled = toggleEnabled
+                )
+            } else if (toggleVisible) {
+                Switch(
+                    checked = enabled,
+                    onCheckedChange = null,
+                    enabled = toggleEnabled
+                )
+            }
+        }
+
+        AnimatedVisibility(visible = isExpanded) {
+            val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp)
+                    .heightIn(max = screenHeight * 0.5f)
+            ) {
+                if (showFaceList) {
+                    FaceListScreen(
+                        onAddFaceClick = {
+                            showFaceList = true
+                            onAddFaceClick()
+                        }
+                    )
+                } else {
+                    Text(
+                        text = description ?: "Tap to view details",
+                        color = Color.Gray,
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+
+@Composable
+fun FullscreenOverlay(onDismiss: () -> Unit) {
+    AnimatedVisibility(
+        visible = true,
+        enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
+        exit = fadeOut() + slideOutVertically(targetOffsetY = { it })
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.4f))
+        ) {
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .fillMaxSize(),
+                color = Color.White
+            ) {
+                AddFaceScreen(onNavigateBack = onDismiss)
+            }
+        }
+    }
+}
+
 
 @Composable
 fun SectionTitle(title: String) {
@@ -231,108 +363,3 @@ fun SectionTitle(title: String) {
         modifier = Modifier.padding(bottom = 8.dp)
     )
 }
-
-@Composable
-fun SettingItem(
-    title: String,
-    description: String?,
-    enabled: Boolean,
-    onToggleChange: ((Boolean) -> Unit)?,
-    option: Option, // Adiciona a opção que esse card representa
-    toggleVisible: Boolean,
-    toggleEnabled: Boolean = true,
-    borderColor: Color = Color(0xFF1E88E5), // azul
-    borderWidth: Dp = 1.dp,
-    cornerRadius: Dp = 12.dp,
-    shadowElevation: Dp = 4.dp,
-    expandedOption: Option?, // 👈 controla se está expandido
-    onExpand: (Option) -> Unit // 👈 callback de clique
-
-) {
-    val isExpanded = expandedOption == option
-
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .fillMaxWidth()
-            .padding(vertical = 8.dp)
-            .shadow(
-                elevation = shadowElevation,
-                shape = RoundedCornerShape(cornerRadius)
-            )
-            .background(Color.White, RoundedCornerShape(cornerRadius))
-            .border(borderWidth, borderColor, RoundedCornerShape(cornerRadius))
-            .clickable { onExpand(option) } // 👈 alterna expand/colapsar
-            .padding(horizontal = 16.dp, vertical = 12.dp) // padding interno
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-
-        ) {
-            Text(
-                text = title,
-                fontWeight = FontWeight.Bold,
-                fontSize = 14.sp,
-                 maxLines = 1
-
-            )
-
-            if (toggleVisible && onToggleChange != null) {
-                Switch(
-                    checked = enabled,
-                    onCheckedChange = onToggleChange,
-                    enabled = toggleEnabled
-                )
-            } else if (toggleVisible) {
-                // switch disabled but visible (greyed out)
-                Switch(
-                    checked = enabled,
-                    onCheckedChange = null,
-                    enabled = toggleEnabled
-                )
-            }
-
-        }
-
-        // 🔹 Conteúdo expandido
-        if (isExpanded) {
-            when (option) {
-                Option.FacialDetection -> {
-                    Spacer(Modifier.height(12.dp))
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Color(0xFFF0F0F0), RoundedCornerShape(8.dp))
-                            .padding(8.dp)
-                    ) {
-                        // 👇 Aqui “injeta” o conteúdo
-                        FaceListScreen(
-                            onNavigateBack = { onExpand(option) }, // fecha ao voltar
-                            onAddFaceClick = { /* abrir add-face */ }
-                        )
-                    }
-                }
-
-                Option.ProximityDetection -> {
-                    Text(
-                        text = "Proximity detection settings here...",
-                        color = Color.Gray,
-                        modifier = Modifier.padding(top = 8.dp)
-                    )
-                }
-
-                Option.CameraDetection -> {
-                    Text(
-                        text = "Camera detection configuration...",
-                        color = Color.Gray,
-                        modifier = Modifier.padding(top = 8.dp)
-                    )
-                }
-            }
-        }
-    }
-}
-

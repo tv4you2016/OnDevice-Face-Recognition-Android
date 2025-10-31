@@ -21,6 +21,7 @@ tensorflow-lite = "1.4.0"
 tensorflow-lite-support = "1.4.0"
 camerax = "1.5.1"
 uiTextGoogleFonts = "1.9.4"
+animation = "1.9.4"
 
 
 
@@ -67,6 +68,7 @@ androidx-camera-camera2 = { module = "androidx.camera:camera-camera2", version.r
 androidx-camera-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "camerax" }
 androidx-camera-view = { module = "androidx.camera:camera-view", version.ref = "camerax" }
 androidx-ui-text-google-fonts = { group = "androidx.compose.ui", name = "ui-text-google-fonts", version.ref = "uiTextGoogleFonts" }
+androidx-compose-animation = { group = "androidx.compose.animation", name = "animation", version.ref = "animation" }
 
 
 

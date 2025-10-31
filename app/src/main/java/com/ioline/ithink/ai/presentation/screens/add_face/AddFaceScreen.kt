@@ -5,9 +5,11 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -33,8 +35,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import com.ioline.ithink.ai.R
 import com.ioline.ithink.ai.presentation.components.AppProgressDialog
 import com.ioline.ithink.ai.presentation.components.DelayedVisibility
 import com.ioline.ithink.ai.presentation.components.hideProgressDialog
@@ -45,6 +52,9 @@ import org.koin.androidx.compose.koinViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddFaceScreen(onNavigateBack: (() -> Unit)) {
+    val viewModel: AddFaceScreenViewModel = koinViewModel()
+
+
     FaceNetAndroidTheme {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
@@ -59,13 +69,15 @@ fun AddFaceScreen(onNavigateBack: (() -> Unit)) {
                                 imageVector = Icons.AutoMirrored.Default.ArrowBack,
                                 contentDescription = "Navigate Back",
                             )
+
+                            viewModel.clearState() // 👈 Adicione isto
+
                         }
                     },
                 )
             },
         ) { innerPadding ->
             Column(modifier = Modifier.padding(innerPadding)) {
-                val viewModel: AddFaceScreenViewModel = koinViewModel()
                 ScreenUI(viewModel)
                 ImageReadProgressDialog(viewModel, onNavigateBack)
             }
@@ -81,55 +93,102 @@ private fun ScreenUI(viewModel: AddFaceScreenViewModel) {
         ) {
             viewModel.selectedImageURIs.value = it
         }
+
     var personName by remember { viewModel.personNameState }
-    Column(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp),
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    // ✅ Usa BoxWithConstraints para medir a altura disponível
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 24.dp)
     ) {
-        TextField(
-            modifier = Modifier.fillMaxWidth(),
-            value = personName,
-            onValueChange = { personName = it },
-            label = { Text(text = "Enter the person's name") },
-            singleLine = true,
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
+        val totalHeight = maxHeight
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(totalHeight)
         ) {
-            Button(
-                enabled = viewModel.personNameState.value.isNotEmpty(),
-                onClick = {
-                    pickVisualMediaLauncher.launch(
-                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
-                    )
-                },
+            TextField(
+                modifier = Modifier.fillMaxWidth(),
+                value = personName,
+                onValueChange = { personName = it },
+                label = { Text(text = "Enter the person's name") },
+                singleLine = true,
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
-                Icon(imageVector = Icons.Default.Photo, contentDescription = "Choose photos")
-                Text(text = "Choose photos")
+                Button(
+                    enabled = viewModel.personNameState.value.isNotEmpty(),
+                    onClick = {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                        pickVisualMediaLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    },
+                ) {
+                    Icon(imageVector = Icons.Default.Photo, contentDescription = "Choose photos")
+                    Text(text = "Choose photos")
+                }
+
+                DelayedVisibility(viewModel.selectedImageURIs.value.isNotEmpty()) {
+                    Button(
+                        onClick = {
+                            focusManager.clearFocus()
+                            keyboardController?.hide()
+                            viewModel.addImages()
+                        }
+                    ) {
+                        Text(text = stringResource(id = R.string.add_faces))
+                    }
+                }
             }
+
             DelayedVisibility(viewModel.selectedImageURIs.value.isNotEmpty()) {
-                Button(onClick = { viewModel.addImages() }) { Text(text = "Add to database") }
+                Text(
+                    text = "${viewModel.selectedImageURIs.value.size} image(s) selected",
+                    style = MaterialTheme.typography.labelSmall,
+                )
             }
-        }
-        DelayedVisibility(viewModel.selectedImageURIs.value.isNotEmpty()) {
-            Text(
-                text = "${viewModel.selectedImageURIs.value.size} image(s) selected",
-                style = MaterialTheme.typography.labelSmall,
+
+            // ✅ O grid ocupa o restante espaço
+            ImagesGrid(
+                viewModel = viewModel,
+                modifier = Modifier
+                    .weight(1f) // ocupa tudo o que sobra
+                    .fillMaxWidth()
             )
         }
-        ImagesGrid(viewModel)
     }
 }
 
 @Composable
-private fun ImagesGrid(viewModel: AddFaceScreenViewModel) {
+private fun ImagesGrid(viewModel: AddFaceScreenViewModel, modifier: Modifier = Modifier) {
     val uris by remember { viewModel.selectedImageURIs }
-    LazyVerticalGrid(columns = GridCells.Fixed(2)) {
-        items(uris) { AsyncImage(model = it, contentDescription = null) }
+
+    // ✅ O grid agora é limitado ao espaço restante
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(4),
+        modifier = modifier.fillMaxSize(),
+        userScrollEnabled = false // pode deixar true (scroll só no grid se houver overflow)
+    ) {
+        items(uris) { uri ->
+            AsyncImage(
+                model = uri,
+                contentDescription = null,
+                modifier = Modifier
+                    .aspectRatio(1f) // mantém as imagens quadradas
+                    .padding(2.dp)
+            )
+        }
     }
 }
 
@@ -146,8 +205,9 @@ private fun ImageReadProgressDialog(
         showProgressDialog()
     } else {
         if (numImagesProcessed > 0) {
+            viewModel.clearState() // 👈 Adicione isto
+            Toast.makeText(context, 	stringResource(id = R.string.add_facesOK), Toast.LENGTH_SHORT).show()
             onNavigateBack()
-            Toast.makeText(context, "Added to database", Toast.LENGTH_SHORT).show()
         }
         hideProgressDialog()
     }
