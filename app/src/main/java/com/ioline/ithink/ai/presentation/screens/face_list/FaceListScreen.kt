@@ -3,6 +3,7 @@ package com.ioline.ithink.ai.presentation.screens.face_list
 
 import android.text.format.DateUtils
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -37,6 +38,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.ioline.ithink.ai.R
 import com.ioline.ithink.ai.data.PersonRecord
 import com.ioline.ithink.ai.presentation.components.AppAlertDialog
@@ -52,6 +54,7 @@ fun FaceListScreen(onAddFaceClick: (() -> Unit),
 ) {
     FaceNetAndroidTheme {
         Scaffold(
+            containerColor = Color(0xFF000000), // 👈 fundo preto
             modifier = Modifier.fillMaxSize(),
             floatingActionButton = {
                 FloatingActionButton(onClick = onAddFaceClick) {
@@ -62,7 +65,7 @@ fun FaceListScreen(onAddFaceClick: (() -> Unit),
             val viewModel: FaceListScreenViewModel = koinViewModel()
             Column(modifier = Modifier.padding(innerPadding)) {
                 ScreenUI(viewModel)
-                AppAlertDialog()
+                //AppAlertDialog()
             }
         }
     }
@@ -71,10 +74,8 @@ fun FaceListScreen(onAddFaceClick: (() -> Unit),
 @Composable
 private fun ScreenUI(viewModel: FaceListScreenViewModel) {
     val faces by viewModel.personFlow.collectAsState(emptyList())
-    LazyColumn { items(faces) { FaceListItem(it) { viewModel.removeFace(it.personID) } } }
 
-    val viewModel: DetectScreenViewModel = koinViewModel()
-    DelayedVisibility(viewModel.getNumPeople() == 0L) {
+    if (faces.isEmpty()) {
         Text(
             text = stringResource(id = R.string.no_faces),
             color = Color.White,
@@ -87,6 +88,10 @@ private fun ScreenUI(viewModel: FaceListScreenViewModel) {
             textAlign = TextAlign.Center,
         )
     }
+
+    LazyColumn { items(faces) {FaceListItem(it) { viewModel.removeFace(it.personID)}}}
+
+
 }
 
 @Composable
@@ -95,39 +100,43 @@ private fun FaceListItem(
     onRemoveFaceClick: (() -> Unit),
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().background(Color.White).padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFF000000))
+            .border(4.dp, Color.Gray, RoundedCornerShape(12.dp))
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(modifier = Modifier.fillMaxWidth().weight(1f)) {
+        Column(
+            modifier = Modifier.weight(1f) // ocupa o espaço disponível
+        ) {
             Text(
                 text = personRecord.personName,
                 style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Bold,
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = DateUtils.getRelativeTimeSpanString(personRecord.addTime).toString(),
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.DarkGray,
+                fontSize = 16.sp,
+                maxLines = 1,
+                color = Color.White
             )
         }
+
         Icon(
-            modifier =
-                Modifier.clickable {
-                    createAlertDialog(
-                        dialogTitle = "Remove person",
-                        dialogText =
-                            "Are you sure to remove this person from the database. The face for this person will not " +
-                                "be detected in realtime",
-                        dialogPositiveButtonText = "Remove",
-                        onPositiveButtonClick = onRemoveFaceClick,
-                        dialogNegativeButtonText = "Cancel",
-                        onNegativeButtonClick = {},
-                    )
-                },
+            modifier = Modifier.clickable {
+                createAlertDialog(
+                    dialogTitle = "Remove person",
+                    dialogText = "Are you sure to remove this person from the database? " +
+                            "The face for this person will not be detected in realtime.",
+                    dialogPositiveButtonText = "Remove",
+                    onPositiveButtonClick = onRemoveFaceClick,
+                    dialogNegativeButtonText = "Cancel",
+                    onNegativeButtonClick = {}
+                )
+            },
             imageVector = Icons.Default.Clear,
             contentDescription = "Remove face",
+            tint = Color.White
         )
-        Spacer(modifier = Modifier.width(2.dp))
+
+        Spacer(modifier = Modifier.width(8.dp)) // espaço entre ícone e borda direita
     }
+
 }
