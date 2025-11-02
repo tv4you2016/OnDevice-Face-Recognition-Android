@@ -1,7 +1,6 @@
 package com.ioline.ithink.ai
 
-import android.content.Intent
-import android.os.Build
+
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -12,8 +11,6 @@ import androidx.navigation.compose.rememberNavController
 
 import com.ioline.ai.PermissionManager
 import com.ioline.ithink.ai.layout.MainLayout
-import com.ioline.ithink.ai.presentation.screens.add_face.AddFaceScreen
-import com.ioline.ithink.ai.presentation.screens.detect_screen.DetectScreen
 import com.ioline.ithink.ai.presentation.screens.face_list.FaceListScreen
 
 class MainActivity : ComponentActivity() {

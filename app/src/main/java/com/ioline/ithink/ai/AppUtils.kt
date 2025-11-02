@@ -1,21 +1,14 @@
 // AppUtils.kt
 package com.ioline.aicamera.utils
 
-import android.R
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.Service
+
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import androidx.core.app.ServiceCompat
-import androidx.core.app.ServiceCompat.startForeground
 import com.ioline.ithink.ai.MyDeviceAdminReceiver
 import com.ioline.ithink.ai.WakeLock
 

@@ -2,6 +2,7 @@ package com.ioline.ithink.ai.layout
 
 
 
+import android.app.Activity
 import android.content.Intent
 import android.os.Build
 import android.util.Log
@@ -20,6 +21,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddReaction
 import androidx.compose.material.icons.filled.Face
@@ -38,6 +40,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
@@ -45,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.ioline.ithink.ai.ProximityService
 import com.ioline.ithink.ai.presentation.components.FaceDetectionService
@@ -89,21 +93,39 @@ fun MainLayout(navController: NavController) {
             .background(Color(0xFF000000)) // define o fundo preto
     ) {
 
+
         // ----------- Scaffold (conteúdo da app) -----------
         Scaffold(
             containerColor = Color(0xFF000000), // 👈 fundo preto
 
             topBar = {
                 TopAppBar(
-                    title = { Text("MordomusTABMNG",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                    )},
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color(0xFF000000), // ✅ fundo preto
-                    )
+                    title = {
+                        Text(
+                            text = "MordomusTABMNG",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF000000)), // Fundo preto
+                  //  navigationIcon = null, // Remova o ícone de navegação à esquerda
+                    actions = {
+                        if (overlayVisible) {
+                            IconButton(onClick = {
+                                // Lógica para fechar o overlay
+                                overlayVisible = false
+                            }) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Default.ArrowBack, // Ícone da seta
+                                    contentDescription = "Navigate Back",
+                                    tint = Color.White
+                                )
+                            }
+                        }
+                    }
                 )
             },
+
             bottomBar = {
                 NavigationBar(
                     modifier = Modifier.height(75.dp),
@@ -300,136 +322,74 @@ fun SettingItem(
     shadowElevation: Dp = 4.dp,
     iconImage: ImageVector,
     onAddFaceClick: () -> Unit,
-    expandedOption: Option?,                // estado global vindo do MainLayout
-    onExpandChange: (Option?) -> Unit       // função para alterar o expandido
+    expandedOption: Option?,
+    onExpandChange: (Option?) -> Unit
 ) {
     val isExpanded = expandedOption == option
-    var showFaceList by remember { mutableStateOf(false) }
 
-    // 👇 Cores dinâmicas
-    val dynamicBorderColor by animateColorAsState(
-        targetValue = when {
-            isExpanded -> Color(0xFFFF9800) // laranja quando expandido
-           // enabled -> Color(0xFFFF9800) // azul quando ativo
-            else ->  Color.Gray // azul quando ativo
-        },
-        label = "borderColorAnimation"
+    // Cor da borda animada
+    val borderColor by animateColorAsState(
+        targetValue = if (isExpanded) colorResource(id = R.color.md_orange) else Color.Gray,
+        label = "borderColor"
     )
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp)
-            .shadow(
-                elevation = shadowElevation,
-                shape = RoundedCornerShape(cornerRadius)
-            )
-            .background(Color(0xFF000000) , RoundedCornerShape(cornerRadius))
-            .border(borderWidth, dynamicBorderColor, RoundedCornerShape(cornerRadius))
+            .shadow(elevation = shadowElevation, shape = RoundedCornerShape(cornerRadius))
+            .background(Color.Black, RoundedCornerShape(cornerRadius))
+            .border(borderWidth, borderColor, RoundedCornerShape(cornerRadius))
             .clickable {
-                // 👇 Aqui está a correção principal:
-                if (isExpanded) {
-                    onExpandChange(null) // fecha se já estava aberto
-                } else {
-                    onExpandChange(option) // abre este e fecha os outros
-                    if (option == Option.FacialDetection) {
-                        showFaceList = true
-                    }
-                }
+                onExpandChange(if (isExpanded) null else option)
             }
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
+        // ===== Cabeçalho da opção =====
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.weight(1f)
-            ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                 Icon(
                     imageVector = iconImage,
-                    contentDescription = "Open Face List",
-                    modifier = Modifier.padding(end = 16.dp),
-                    tint  = Color.White
+                    contentDescription = "$title icon",
+                    tint = Color.White,
+                    modifier = Modifier.padding(end = 16.dp)
                 )
                 Text(
                     text = title,
-                    //fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
-                    maxLines = 1,
-                    color = Color.White
+                    color = Color.White,
+                    fontWeight = FontWeight.Medium
                 )
             }
 
             if (toggleVisible && onToggleChange != null) {
-                Switch(
-                    checked = enabled,
-                    onCheckedChange = onToggleChange,
-                    enabled = toggleEnabled,
-                    colors = SwitchDefaults.colors(
-                        checkedTrackColor  = Color(0xFFff931e),      // Cor do "botão" quando ativado
-                        checkedThumbColor =Color.White,      // Cor da faixa quando ativado
-                        uncheckedThumbColor= Color.White,           // Cor do botão quando desativado
-                        uncheckedTrackColor= Color(0xFF808080),      // Cor da faixa quando desativado
-
-                        //disabledCheckedThumbColor = Color.DarkGray, // Cor quando desativado + ativo
-                        //disabledUncheckedThumbColor = Color.Gray
-                    )
-
-
-                )
-            } else if (toggleVisible) {
-                Switch(
-                    checked = enabled,
-                    onCheckedChange = null,
-                    enabled = toggleEnabled,
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color(0xFFFF9800),      // Cor do "botão" quando ativado
-                        checkedTrackColor = Color(0xFFFFC107),      // Cor da faixa quando ativado
-                        uncheckedThumbColor = Color.Gray,           // Cor do botão quando desativado
-                        uncheckedTrackColor = Color.LightGray,      // Cor da faixa quando desativado
-                        disabledCheckedThumbColor = Color.DarkGray, // Cor quando desativado + ativo
-                        disabledUncheckedThumbColor = Color.Gray
-                    )
-                )
+                DetectionSwitch(checked = enabled, onCheckedChange = onToggleChange)
             }
         }
 
+        // ===== Conteúdo expandido =====
         AnimatedVisibility(visible = isExpanded) {
-            val screenHeight = LocalConfiguration.current.screenHeightDp.dp
-
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 12.dp)
-                    .heightIn(max = screenHeight * 0.5f)
-            ) {
-                if (showFaceList) {
-                    FaceListScreen(
-                        onAddFaceClick = {
-                            showFaceList = true
-                            onAddFaceClick()
-                        }
-                    )
-                } else {
-                    Text(
-                        text = description ?: "Tap to view details",
-                        color = Color.Gray,
-                        fontSize = 13.sp,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
-                }
-            }
+            SettingItemContent(
+                option = option,
+                description = description,
+                onAddFaceClick = onAddFaceClick
+            )
         }
     }
 }
 
 
+
 @Composable
-fun FullscreenOverlay(onDismiss: () -> Unit) {
-    AnimatedVisibility(
+fun FullscreenOverlay( onDismiss: () -> Unit) {
+
+
+
+        AnimatedVisibility(
         visible = true,
         enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
         exit = fadeOut() + slideOutVertically(targetOffsetY = { it })
@@ -445,7 +405,9 @@ fun FullscreenOverlay(onDismiss: () -> Unit) {
                     .fillMaxSize(),
                 color = Color.White
             ) {
-                AddFaceScreen(onNavigateBack = onDismiss)
+                AddFaceScreen(onNavigateBack = {
+                    onDismiss() // Chama o onDismiss quando a sobreposição for fechada
+                })
             }
         }
     }
@@ -460,5 +422,52 @@ fun SectionTitle(title: String) {
         fontWeight = FontWeight.SemiBold,
         fontSize = 16.sp,
         modifier = Modifier.padding(bottom = 8.dp)
+    )
+}
+
+
+
+@Composable
+private fun SettingItemContent(
+    option: Option,
+    description: String?,
+    onAddFaceClick: () -> Unit
+) {
+    val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(max = screenHeight * 0.5f)
+            .padding(top = 8.dp)
+    ) {
+        if (option == Option.FacialDetection) {
+            FaceListScreen(onAddFaceClick = onAddFaceClick)
+        } else {
+            Text(
+                text = description ?: "Tap to view details",
+                color = Color.Gray,
+                fontSize = 13.sp,
+                modifier = Modifier.padding(8.dp)
+            )
+        }
+    }
+}
+
+
+@Composable
+private fun DetectionSwitch(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Switch(
+        checked = checked,
+        onCheckedChange = onCheckedChange,
+        colors = SwitchDefaults.colors(
+            checkedTrackColor = Color(0xFFff931e),
+            checkedThumbColor = Color.White,
+            uncheckedTrackColor = Color(0xFF808080),
+            uncheckedThumbColor = Color.White
+        )
     )
 }
