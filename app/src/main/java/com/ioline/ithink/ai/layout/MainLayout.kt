@@ -50,13 +50,17 @@ import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.ioline.ithink.ai.ProximityService
+import com.ioline.aicamera.utils.AppUtils
+import com.ioline.ithink.ai.presentation.components.ProximityService
 import com.ioline.ithink.ai.presentation.components.FaceDetectionService
 import com.ioline.aicamera.utils.AppUtils.openTargetApp
 import com.ioline.ithink.ai.R
 import com.ioline.ithink.ai.presentation.components.AppLoading
+import com.ioline.ithink.ai.presentation.components.CameraService
 import com.ioline.ithink.ai.presentation.screens.add_face.AddFaceScreen
+import com.ioline.ithink.ai.presentation.screens.camera_sensor.CameraSensor
 import com.ioline.ithink.ai.presentation.screens.face_list.FaceListScreen
+import com.ioline.ithink.ai.presentation.screens.proximity_sensor.ProximitySensor
 import kotlinx.coroutines.launch
 
 
@@ -181,15 +185,21 @@ fun MainLayout(navController: NavController) {
                     SectionTitle("Detection:" )
 
                     // --- seus SettingItems ---
+
+                    val hasSensor = AppUtils.hasProximitySensor(context)
+
+
+
+
+
                     SettingItem(
                         title = "Proximity",
-                        description = null,
-                        enabled = proximityEnabled,
-                        onToggleChange = { isChecked ->
+                        description = if (!hasSensor) "Sensor de proximidade não disponível neste dispositivo." else null,
+                        enabled = proximityEnabled && hasSensor,
+                        onToggleChange = if (hasSensor) { isChecked ->
                             proximityEnabled = isChecked
                             facialEnabled = false
                             cameraEnabled = false
-
 
                             if (isChecked) {
                                 FaceDetectionService.stop(context)
@@ -202,20 +212,18 @@ fun MainLayout(navController: NavController) {
                             } else {
                                 context.stopService(Intent(context, ProximityService::class.java))
                             }
-                        },
+                        } else null, // 👈 se não tiver sensor, desativa o toggle
                         toggleVisible = true,
-                        toggleEnabled = true,
+                        toggleEnabled = hasSensor, // 👈 desativa visualmente o switch
                         option = Option.ProximityDetection,
                         iconImage = Icons.Default.Sensors,
-                        onAddFaceClick = {
-                            // Alterando o estado do overlay dentro do contexto composable
-                            overlayVisible = true  // Alterando o estado no MainLayout
-                        },
+                        onAddFaceClick = { overlayVisible = true },
                         expandedOption = expandedOption,
                         onExpandChange = { selected ->
                             expandedOption = if (expandedOption == selected) null else selected
                         }
                     )
+
 
                     SettingItem(
                         title = "Facial Detect",
@@ -225,8 +233,6 @@ fun MainLayout(navController: NavController) {
                             facialEnabled = isChecked
                             proximityEnabled = false
                             cameraEnabled = false
-
-
 
                             if (isChecked) {
                                 context.stopService(Intent(context, ProximityService::class.java))
@@ -263,6 +269,9 @@ fun MainLayout(navController: NavController) {
                             if (isChecked) {
                                 FaceDetectionService.stop(context)
                                 context.stopService(Intent(context, ProximityService::class.java))
+
+                                val intent = Intent(context, CameraService::class.java)
+                                ContextCompat.startForegroundService(context, intent)
                             }
                         },
                         toggleVisible = true,
@@ -366,8 +375,12 @@ fun SettingItem(
                 )
             }
 
-            if (toggleVisible && onToggleChange != null) {
-                DetectionSwitch(checked = enabled, onCheckedChange = onToggleChange)
+            if (toggleVisible) {
+                DetectionSwitch(
+                    checked = enabled,
+                    onCheckedChange = onToggleChange,
+                    enabled = toggleEnabled
+                )
             }
         }
 
@@ -443,7 +456,14 @@ private fun SettingItemContent(
     ) {
         if (option == Option.FacialDetection) {
             FaceListScreen(onAddFaceClick = onAddFaceClick)
-        } else {
+        }
+        else if (option == Option.ProximityDetection) {
+            ProximitySensor( onAddFaceClick = onAddFaceClick)
+        }
+        else  if (option == Option.CameraDetection) {
+            CameraSensor( onAddFaceClick = onAddFaceClick)
+        }
+        else {
             Text(
                 text = description ?: "Tap to view details",
                 color = Color.Gray,
@@ -458,16 +478,24 @@ private fun SettingItemContent(
 @Composable
 private fun DetectionSwitch(
     checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
+    onCheckedChange: ((Boolean) -> Unit)?,
+    enabled: Boolean
 ) {
     Switch(
         checked = checked,
-        onCheckedChange = onCheckedChange,
+        onCheckedChange = { if (enabled && onCheckedChange != null) onCheckedChange(it) },
+        enabled = enabled,
         colors = SwitchDefaults.colors(
-            checkedTrackColor = Color(0xFFff931e),
             checkedThumbColor = Color.White,
+            checkedTrackColor = Color(0xFFff931e),
+            uncheckedThumbColor = Color.White,
             uncheckedTrackColor = Color(0xFF808080),
-            uncheckedThumbColor = Color.White
+
+            // 👇 Novos parâmetros corretos:
+            disabledCheckedThumbColor = Color.Gray,
+            disabledCheckedTrackColor = Color.DarkGray,
+            disabledUncheckedThumbColor = Color.Gray,
+            disabledUncheckedTrackColor = Color.DarkGray
         )
     )
 }

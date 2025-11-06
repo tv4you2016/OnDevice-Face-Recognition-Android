@@ -25,6 +25,7 @@ class MainActivity : ComponentActivity() {
 
         // Inicializa PermissionManager com callback
         permissionManager = PermissionManager(this) {
+
             setContent {
 
                 FaceListScreen(

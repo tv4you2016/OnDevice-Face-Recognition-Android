@@ -82,6 +82,7 @@ dependencies {
     implementation(libs.androidx.compose.navigation)
     implementation(libs.androidx.ui.text.google.fonts)
     implementation(libs.androidx.compose.animation)
+    implementation(libs.androidx.lifecycle.service)
 
     // ObjectBox - vector database
     debugImplementation(libs.objectbox.android.objectbrowser)

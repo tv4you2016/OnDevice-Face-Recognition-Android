@@ -1,4 +1,4 @@
-package com.ioline.ithink.ai
+package com.ioline.ithink.ai.presentation.components
 
 import android.R
 import android.app.Notification
@@ -13,7 +13,6 @@ import android.hardware.SensorManager
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
-import com.ioline.aicamera.utils.AppUtils
 
 class ProximityService : Service(), SensorEventListener {
 
@@ -79,6 +78,7 @@ class ProximityService : Service(), SensorEventListener {
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
 
     override fun onBind(intent: Intent?): IBinder? = null
+
 
 
 }

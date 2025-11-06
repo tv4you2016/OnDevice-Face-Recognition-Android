@@ -56,13 +56,19 @@
 
 
         <service
-            android:name=".ProximityService"
+            android:name=".presentation.components.ProximityService"
             android:enabled="true"
             android:exported="true"
             android:foregroundServiceType="dataSync" />
 
         <service
             android:name=".presentation.components.FaceDetectionService"
+            android:enabled="true"
+            android:exported="true"
+            android:foregroundServiceType="camera" />
+
+        <service
+            android:name=".presentation.components.CameraService"
             android:enabled="true"
             android:exported="true"
             android:foregroundServiceType="camera" />
