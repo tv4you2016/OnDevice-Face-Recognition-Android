@@ -25,7 +25,7 @@ fun CameraSensor(
             modifier = Modifier.fillMaxSize(),
         ) { innerPadding ->
 
-            var sliderValue by remember { mutableFloatStateOf(0.5f) }
+            var sliderValue by remember { mutableFloatStateOf(85f) }
 
             Column(
                 modifier = Modifier

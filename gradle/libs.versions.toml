@@ -23,6 +23,7 @@ camerax = "1.5.1"
 uiTextGoogleFonts = "1.9.4"
 animation = "1.9.4"
 lifecycleService = "2.9.4"
+foundation = "1.9.4"
 
 
 
@@ -71,6 +72,7 @@ androidx-camera-view = { module = "androidx.camera:camera-view", version.ref = "
 androidx-ui-text-google-fonts = { group = "androidx.compose.ui", name = "ui-text-google-fonts", version.ref = "uiTextGoogleFonts" }
 androidx-compose-animation = { group = "androidx.compose.animation", name = "animation", version.ref = "animation" }
 androidx-lifecycle-service = { group = "androidx.lifecycle", name = "lifecycle-service", version.ref = "lifecycleService" }
+androidx-compose-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
 
 
 

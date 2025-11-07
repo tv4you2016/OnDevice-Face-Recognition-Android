@@ -3,8 +3,6 @@ package com.ioline.ithink.ai.presentation.components
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.content.Context
-import android.content.ContextWrapper
 import android.content.Intent
 import android.media.Image
 import android.os.Build
@@ -22,7 +20,7 @@ import kotlin.math.abs
 import android.R
 import androidx.annotation.OptIn
 import androidx.camera.core.ExperimentalGetImage
-import com.ioline.aicamera.utils.AppUtils.openTargetApp
+import com.ioline.ithink.ai.AppUtils.openTargetApp
 
 class CameraService : LifecycleService() {
     private val TAG = "MotionDetectService"

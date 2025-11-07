@@ -1,11 +1,16 @@
 package com.ioline.ithink.ai.presentation.screens.face_list
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.rememberScrollableState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -15,6 +20,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.consumeAllChanges
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -25,6 +32,8 @@ import com.ioline.ithink.ai.data.PersonRecord
 import com.ioline.ithink.ai.presentation.components.createAlertDialog
 import com.ioline.ithink.ai.presentation.screens.add_face.AddFaceScreen
 import com.ioline.ithink.ai.presentation.theme.FaceNetAndroidTheme
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import org.koin.core.annotation.Single
 
@@ -63,7 +72,7 @@ fun FaceListScreen(
                         .padding(vertical = 12.dp, horizontal = 8.dp),
                 ) {
                     Text(
-                        text = "Face List:",
+                        text = "User List:",
                         style = MaterialTheme.typography.titleMedium.copy(
                             fontSize = 18.sp,
                             fontWeight = FontWeight.SemiBold
@@ -138,25 +147,70 @@ private fun EmptyFacesUI() {
 private fun ScreenUI(viewModel: FaceListScreenViewModel) {
     val faces by viewModel.personFlow.collectAsState(emptyList())
 
+    val coroutineScope = rememberCoroutineScope()
 
+    // Estado do LazyColumn
+    val listState = rememberLazyListState()
 
-    LazyColumn(
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
+    // Estado para permitir scroll somente quando a lista está "ativa"
+    var scrollEnabled by remember { mutableStateOf(false) }
 
-        if (faces.isEmpty()) {
-            item { EmptyFacesUI() }
-        } else {
-            items(faces) { face ->
-                FaceListItem(
-                    personRecord = face,
-                    onRemoveFaceClick = { viewModel.removeFace(face.personID) }
+    // Scroll state para controlar o drag manual
+    val scrollableState = rememberScrollableState { delta ->
+        if (scrollEnabled) {
+            // Atualiza a LazyColumn
+            delta
+        } else 0f
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 120.dp, max = 300.dp)
+            .border(1.dp, Color.Gray, RoundedCornerShape(12.dp))
+            .background(Color(0xFF1A1A1A), RoundedCornerShape(12.dp))
+            // detecta quando começa a arrastar na lista
+            .pointerInput(Unit) {
+                detectVerticalDragGestures(
+                    onDragStart = { scrollEnabled = true },
+                    onDragEnd = { scrollEnabled = false },
+                    onDragCancel = { scrollEnabled = false },
+                    onVerticalDrag = { change, dragAmount ->
+                        if (scrollEnabled) {
+                            // move o scroll da LazyColumn
+                            val firstVisible = listState.firstVisibleItemIndex
+                            val offset = listState.firstVisibleItemScrollOffset
+                            coroutineScope.launch {
+                                listState.scrollToItem(firstVisible, offset - dragAmount.toInt())
+                            }
+                        }
+                        change.consume()
+                    }
                 )
+            }
+    ) {
+        LazyColumn(
+            state = listState,
+            userScrollEnabled = false, // controlado manualmente
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            if (faces.isEmpty()) {
+                item { EmptyFacesUI() }
+            } else {
+                items(faces) { face ->
+                    FaceListItem(
+                        personRecord = face,
+                        onRemoveFaceClick = { viewModel.removeFace(face.personID) }
+                    )
+                }
             }
         }
     }
 }
+
+
+
 
 @Composable
 private fun FaceListItem(

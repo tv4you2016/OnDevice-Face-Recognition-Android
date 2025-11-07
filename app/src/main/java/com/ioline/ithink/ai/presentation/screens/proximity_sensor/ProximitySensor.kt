@@ -42,7 +42,7 @@ fun ProximitySensor(
             modifier = Modifier.fillMaxSize(),
         ) { innerPadding ->
 
-            var sliderValue by remember { mutableFloatStateOf(0.5f) }
+            var sliderValue by remember { mutableFloatStateOf(85f) }
 
             Column(
                 modifier = Modifier
@@ -86,9 +86,6 @@ fun ProximitySensor(
                         .fillMaxWidth()
                         .height(96.dp) // aqui você aumenta a altura do slider
                 )
-
-
-
 
                 Text(
                     text = "Current value: ${sliderValue.toInt()}%", // 🔹 mostra como % inteiro

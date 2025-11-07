@@ -2,31 +2,28 @@ package com.ioline.ithink.ai.layout
 
 
 
-import android.app.Activity
 import android.content.Intent
 import android.os.Build
-import android.util.Log
 import androidx.camera.core.ExperimentalGetImage
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AddReaction
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.FaceRetouchingNatural
-import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -48,12 +45,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import com.ioline.aicamera.utils.AppUtils
+import com.ioline.ithink.ai.AppUtils
 import com.ioline.ithink.ai.presentation.components.ProximityService
 import com.ioline.ithink.ai.presentation.components.FaceDetectionService
-import com.ioline.aicamera.utils.AppUtils.openTargetApp
+import com.ioline.ithink.ai.AppUtils.openTargetApp
 import com.ioline.ithink.ai.R
 import com.ioline.ithink.ai.presentation.components.AppLoading
 import com.ioline.ithink.ai.presentation.components.CameraService
@@ -68,7 +64,9 @@ import kotlinx.coroutines.launch
 enum class Option {
     FacialDetection,
     ProximityDetection,
-    CameraDetection
+    CameraDetection,
+
+    None
 }
 
 enum class AppDestinations(
@@ -79,48 +77,54 @@ enum class AppDestinations(
     HOME("Home", R.drawable.ic_mordomus_ithink)
 }
 
+
 @androidx.annotation.OptIn(ExperimentalGetImage::class)
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalGetImage::class)
 @Composable
 fun MainLayout(navController: NavController) {
     var overlayVisible by remember { mutableStateOf(false) }
     val context = LocalContext.current
-    var expandedOption by remember { mutableStateOf<Option?>(null) }
+    var expandedOption by remember { mutableStateOf<Option?>(Option.FacialDetection) }
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
     var isLoading by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
 
-    // 👇 Box raiz que envolve tudo
+    val listState = rememberLazyListState()
+
+    var proximityEnabled by remember { mutableStateOf(false) }
+    var facialEnabled by remember { mutableStateOf(true) }
+    var cameraEnabled by remember { mutableStateOf(false) }
+    var noneEnabled by remember { mutableStateOf(false) }
+
+    val settingsOptions = listOf(
+        Option.ProximityDetection,
+        Option.FacialDetection,
+        Option.CameraDetection,
+        Option.None
+    )
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF000000)) // define o fundo preto
+            .background(Color(0xFF000000))
     ) {
-
-
-        // ----------- Scaffold (conteúdo da app) -----------
         Scaffold(
-            containerColor = Color(0xFF000000), // 👈 fundo preto
-
+            containerColor = Color(0xFF000000),
             topBar = {
                 TopAppBar(
                     title = {
                         Text(
-                            text = "MordomusTABMNG",
+                            text = "Mordomus Tavo",
                             color = Color.White,
                             fontWeight = FontWeight.Bold
                         )
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF000000)), // Fundo preto
-                  //  navigationIcon = null, // Remova o ícone de navegação à esquerda
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF000000)),
                     actions = {
                         if (overlayVisible) {
-                            IconButton(onClick = {
-                                // Lógica para fechar o overlay
-                                overlayVisible = false
-                            }) {
+                            IconButton(onClick = { overlayVisible = false }) {
                                 Icon(
-                                    imageVector = Icons.AutoMirrored.Default.ArrowBack, // Ícone da seta
+                                    imageVector = Icons.AutoMirrored.Default.ArrowBack,
                                     contentDescription = "Navigate Back",
                                     tint = Color.White
                                 )
@@ -129,7 +133,6 @@ fun MainLayout(navController: NavController) {
                     }
                 )
             },
-
             bottomBar = {
                 NavigationBar(
                     modifier = Modifier.height(75.dp),
@@ -167,127 +170,172 @@ fun MainLayout(navController: NavController) {
                 }
             }
         ) { paddingValues ->
+
             Box(
                 modifier = Modifier
                     .padding(paddingValues)
                     .fillMaxSize()
             ) {
+                /*
                 Column(
-                    modifier = Modifier
-                        .padding(10.dp)
-                        .verticalScroll(rememberScrollState())
-                        .fillMaxSize()
+                    modifier = Modifier.padding(10.dp)
                 ) {
-                    var proximityEnabled by remember { mutableStateOf(true) }
-                    var facialEnabled by remember { mutableStateOf(false) }
-                    var cameraEnabled by remember { mutableStateOf(false) }
+                    SectionTitle("Detection Type:")
+                }
+                */
 
-                    SectionTitle("Detection:" )
+                LazyColumn(
+                    state = listState,
 
-                    // --- seus SettingItems ---
-
-                    val hasSensor = AppUtils.hasProximitySensor(context)
-
-
-
+                    modifier = Modifier
+                        .padding(horizontal = 10.dp)
+                        .fillMaxSize(),
 
 
-                    SettingItem(
-                        title = "Proximity",
-                        description = if (!hasSensor) "Sensor de proximidade não disponível neste dispositivo." else null,
-                        enabled = proximityEnabled && hasSensor,
-                        onToggleChange = if (hasSensor) { isChecked ->
-                            proximityEnabled = isChecked
-                            facialEnabled = false
-                            cameraEnabled = false
+                    contentPadding = PaddingValues(bottom = 80.dp) // espaço para a bottom nav
 
-                            if (isChecked) {
-                                FaceDetectionService.stop(context)
-                                val intent = Intent(context, ProximityService::class.java)
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                    context.startForegroundService(intent)
-                                } else {
-                                    context.startService(intent)
+                ) {
+                    item { // título
+                        SectionTitle("Detection Type:")
+                    }
+
+                    itemsIndexed(settingsOptions) { index, option ->
+
+                        val hasSensor = AppUtils.hasProximitySensor(context)
+
+                        val title = when(option) {
+                            Option.ProximityDetection -> "Proximity"
+                            Option.FacialDetection -> "Facial Detect"
+                            Option.CameraDetection -> "Camera movement"
+                            Option.None -> "None (Power Button)"
+                        }
+
+                        val description = when(option) {
+                            Option.ProximityDetection -> if (!hasSensor) "Sensor de proximidade não disponível neste dispositivo." else null
+                            else -> null
+                        }
+
+                        val enabled = when(option) {
+                            Option.ProximityDetection -> proximityEnabled && hasSensor
+                            Option.FacialDetection -> facialEnabled
+                            Option.CameraDetection -> cameraEnabled
+                            Option.None -> noneEnabled
+                        }
+
+                        val toggleEnabled = when(option) {
+                            Option.ProximityDetection -> hasSensor
+                            else -> true
+                        }
+
+                        val iconImage = when(option) {
+                            Option.ProximityDetection -> Icons.Default.Sensors
+                            Option.FacialDetection -> Icons.Default.FaceRetouchingNatural
+                            Option.CameraDetection -> Icons.Default.Face
+                            Option.None -> Icons.Default.Close
+                        }
+
+                        SettingItem(
+                            title = title,
+                            description = description,
+                            enabled = enabled,
+                            onToggleChange = { isChecked ->
+                                when(option) {
+                                    Option.ProximityDetection -> {
+                                        proximityEnabled = isChecked
+                                        if (isChecked) {
+                                            facialEnabled = false
+                                            cameraEnabled = false
+                                            noneEnabled = false
+
+                                            FaceDetectionService.stop(context)
+                                            context.stopService(Intent(context, CameraService::class.java))
+
+                                            val intent = Intent(context, ProximityService::class.java)
+                                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                                context.startForegroundService(intent)
+                                            } else {
+                                                context.startService(intent)
+                                            }
+                                        } else {
+                                            context.stopService(Intent(context, ProximityService::class.java))
+                                        }
+                                    }
+                                    Option.FacialDetection -> {
+                                        facialEnabled = isChecked
+                                        if (isChecked) {
+                                            proximityEnabled = false
+                                            cameraEnabled = false
+                                            noneEnabled = false
+
+                                            context.stopService(Intent(context, ProximityService::class.java))
+                                            context.stopService(Intent(context, CameraService::class.java))
+
+                                            val intent = Intent(context, FaceDetectionService::class.java)
+                                            ContextCompat.startForegroundService(context, intent)
+                                        } else {
+                                            FaceDetectionService.stop(context)
+                                        }
+                                    }
+                                    Option.CameraDetection -> {
+                                        cameraEnabled = isChecked
+                                        if (isChecked) {
+                                            proximityEnabled = false
+                                            facialEnabled = false
+                                            noneEnabled = false
+
+                                            FaceDetectionService.stop(context)
+                                            context.stopService(Intent(context, ProximityService::class.java))
+
+                                            val intent = Intent(context, CameraService::class.java)
+                                            ContextCompat.startForegroundService(context, intent)
+                                        } else {
+                                            context.stopService(Intent(context, CameraService::class.java))
+                                        }
+                                    }
+                                    Option.None -> {
+                                        noneEnabled = isChecked
+
+                                        if (isChecked) {
+                                            cameraEnabled = false
+                                            proximityEnabled = false
+                                            facialEnabled = false
+
+                                            FaceDetectionService.stop(context)
+                                            context.stopService(Intent(context, ProximityService::class.java))
+                                            context.stopService(Intent(context, CameraService::class.java))
+                                        }
+                                    }
                                 }
-                            } else {
-                                context.stopService(Intent(context, ProximityService::class.java))
+                            },
+                            toggleVisible = true,
+                            toggleEnabled = toggleEnabled,
+                            option = option,
+                            iconImage = iconImage,
+                            onAddFaceClick = {
+                                overlayVisible = when(option) {
+                                    Option.FacialDetection, Option.CameraDetection, Option.ProximityDetection -> true
+                                    else -> false
+                                }
+                            },
+                            expandedOption = expandedOption,
+
+                            onExpandChange = { selected ->
+                                expandedOption = if (selected == Option.None) {
+                                    null
+                                } else if (expandedOption == selected) {
+                                    null
+                                } else {
+                                    selected
+                                }
                             }
-                        } else null, // 👈 se não tiver sensor, desativa o toggle
-                        toggleVisible = true,
-                        toggleEnabled = hasSensor, // 👈 desativa visualmente o switch
-                        option = Option.ProximityDetection,
-                        iconImage = Icons.Default.Sensors,
-                        onAddFaceClick = { overlayVisible = true },
-                        expandedOption = expandedOption,
-                        onExpandChange = { selected ->
-                            expandedOption = if (expandedOption == selected) null else selected
-                        }
-                    )
+                        )
 
-
-                    SettingItem(
-                        title = "Facial Detect",
-                        description = null,
-                        enabled = facialEnabled,
-                        onToggleChange = { isChecked ->
-                            facialEnabled = isChecked
-                            proximityEnabled = false
-                            cameraEnabled = false
-
-                            if (isChecked) {
-                                context.stopService(Intent(context, ProximityService::class.java))
-                                val intent = Intent(context, FaceDetectionService::class.java)
-                                ContextCompat.startForegroundService(context, intent)
-                            } else {
-                                FaceDetectionService.stop(context)
+                        if (expandedOption == option) {
+                            LaunchedEffect(option) {
+                                listState.animateScrollToItem(index)
                             }
-                        },
-                        toggleVisible = true,
-                        toggleEnabled = true,
-                        option = Option.FacialDetection,
-                        iconImage = Icons.Default.FaceRetouchingNatural,
-                        onAddFaceClick = {
-                            // Alterando o estado do overlay dentro do contexto composable
-                            overlayVisible = true  // Alterando o estado no MainLayout
-                        },
-                        expandedOption = expandedOption,
-                        onExpandChange = { selected ->
-                            expandedOption = if (expandedOption == selected) null else selected
                         }
-                    )
-
-                    SettingItem(
-                        title = "Camera movement",
-                        description = null,
-                        enabled = cameraEnabled,
-                        onToggleChange = { isChecked ->
-                            cameraEnabled = isChecked
-                            proximityEnabled = false
-                            facialEnabled = false
-
-
-                            if (isChecked) {
-                                FaceDetectionService.stop(context)
-                                context.stopService(Intent(context, ProximityService::class.java))
-
-                                val intent = Intent(context, CameraService::class.java)
-                                ContextCompat.startForegroundService(context, intent)
-                            }
-                        },
-                        toggleVisible = true,
-                        toggleEnabled = true,
-                        option = Option.CameraDetection,
-                        iconImage = Icons.Default.Face,
-                        onAddFaceClick = {
-                            // Alterando o estado do overlay dentro do contexto composable
-                            overlayVisible = true  // Alterando o estado no MainLayout
-                        },
-                        expandedOption = expandedOption,
-                        onExpandChange = { selected ->
-                            expandedOption = if (expandedOption == selected) null else selected
-                        }
-                    )
-
+                    }
                 }
 
                 if (overlayVisible) {
@@ -296,7 +344,6 @@ fun MainLayout(navController: NavController) {
             }
         }
 
-        // ----------- OVERLAY GLOBAL (fora do Scaffold) -----------
         AnimatedVisibility(
             visible = isLoading,
             enter = fadeIn(),
@@ -314,7 +361,6 @@ fun MainLayout(navController: NavController) {
         }
     }
 }
-
 
 // Componente SettingItem modificado para receber 'overlayVisible' e 'onAddFaceClick'
 @Composable
@@ -349,10 +395,15 @@ fun SettingItem(
             .shadow(elevation = shadowElevation, shape = RoundedCornerShape(cornerRadius))
             .background(Color.Black, RoundedCornerShape(cornerRadius))
             .border(borderWidth, borderColor, RoundedCornerShape(cornerRadius))
-            .clickable {
+
+           /* .clickable {
                 onExpandChange(if (isExpanded) null else option)
             }
+
+           */
+            .animateContentSize() // 👈 AQUI — anima o card inteiro!
             .padding(horizontal = 16.dp, vertical = 12.dp)
+
     ) {
         // ===== Cabeçalho da opção =====
         Row(
@@ -372,13 +423,25 @@ fun SettingItem(
                     fontSize = 16.sp,
                     color = Color.White,
                     fontWeight = FontWeight.Medium
+
                 )
+
             }
 
             if (toggleVisible) {
                 DetectionSwitch(
                     checked = enabled,
-                    onCheckedChange = onToggleChange,
+                    onCheckedChange = { isChecked ->
+                        // ✅ Impede desligar o próprio item
+                        if (!enabled && isChecked) {
+                            // Estava desligado e foi ligado → ativa
+                            onToggleChange?.invoke(true)
+                            onExpandChange(option)
+                        } else if (enabled && isChecked) {
+                            // Já estava ligado → ignora clique
+                            return@DetectionSwitch
+                        }
+                    },
                     enabled = toggleEnabled
                 )
             }
@@ -451,21 +514,17 @@ private fun SettingItemContent(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(max = screenHeight * 0.5f)
-            .padding(top = 8.dp)
+            // Altura adaptável e limitada
+            .animateContentSize() // 👈 adiciona animação de expansão suave
+            .padding(top = 12.dp, bottom = 12.dp) // 👈 espaço acima/abaixo do conteúdo
+            .heightIn(min = 120.dp, max = 240.dp) // 👈 não enche o ecrã
     ) {
-        if (option == Option.FacialDetection) {
-            FaceListScreen(onAddFaceClick = onAddFaceClick)
-        }
-        else if (option == Option.ProximityDetection) {
-            ProximitySensor( onAddFaceClick = onAddFaceClick)
-        }
-        else  if (option == Option.CameraDetection) {
-            CameraSensor( onAddFaceClick = onAddFaceClick)
-        }
-        else {
-            Text(
-                text = description ?: "Tap to view details",
+        when (option) {
+            Option.FacialDetection -> FaceListScreen(onAddFaceClick = onAddFaceClick)
+            Option.ProximityDetection -> ProximitySensor(onAddFaceClick = onAddFaceClick)
+            Option.CameraDetection -> CameraSensor(onAddFaceClick = onAddFaceClick)
+            else -> Text(
+                text = description ?: "Power Button",
                 color = Color.Gray,
                 fontSize = 13.sp,
                 modifier = Modifier.padding(8.dp)

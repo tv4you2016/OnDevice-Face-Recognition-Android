@@ -21,8 +21,7 @@ import kotlinx.coroutines.*
 import org.koin.android.ext.android.inject
 import java.util.concurrent.Executors
 import androidx.core.graphics.createBitmap
-import com.ioline.aicamera.utils.AppUtils.openTargetApp
-import com.ioline.aicamera.utils.AppUtils.openlockNowApp
+import com.ioline.ithink.ai.AppUtils.openTargetApp
 
 @ExperimentalGetImage
 class FaceDetectionService : Service() {

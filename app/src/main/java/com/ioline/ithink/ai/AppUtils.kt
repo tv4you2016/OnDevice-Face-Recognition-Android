@@ -1,5 +1,5 @@
 // AppUtils.kt
-package com.ioline.aicamera.utils
+package com.ioline.ithink.ai
 
 
 import android.app.admin.DevicePolicyManager
@@ -11,8 +11,6 @@ import android.hardware.SensorManager
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import com.ioline.ithink.ai.MyDeviceAdminReceiver
-import com.ioline.ithink.ai.WakeLock
 
 object AppUtils {
 
@@ -66,10 +64,11 @@ object AppUtils {
 
 
         val sensors = sensorManager.getSensorList(Sensor.TYPE_ALL)
+        /*
         for (s in sensors) {
             Log.d("SensorList", "🔹 ${s.name} (${s.type}) range=${s?.maximumRange}")
         }
-
+        */
         val sensor = sensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY)
         return sensor != null && sensor.maximumRange > 0
     }
