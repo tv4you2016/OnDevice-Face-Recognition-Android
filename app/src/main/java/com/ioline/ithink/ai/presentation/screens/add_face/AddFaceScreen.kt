@@ -48,6 +48,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.ioline.ithink.ai.R
@@ -57,6 +58,7 @@ import com.ioline.ithink.ai.presentation.components.hideProgressDialog
 import com.ioline.ithink.ai.presentation.components.showProgressDialog
 import com.ioline.ithink.ai.presentation.theme.FaceNetAndroidTheme
 import org.koin.androidx.compose.koinViewModel
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -95,6 +97,9 @@ fun AddFaceScreen(
 
 @Composable
 private fun ScreenUI(viewModel: AddFaceScreenViewModel) {
+
+    val context = LocalContext.current
+
     val pickVisualMediaLauncher =
         rememberLauncherForActivityResult(
             contract = ActivityResultContracts.PickMultipleVisualMedia(),
@@ -105,6 +110,21 @@ private fun ScreenUI(viewModel: AddFaceScreenViewModel) {
     var personName by remember { viewModel.personNameState }
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
+
+
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == android.app.Activity.RESULT_OK) {
+            // Atualiza o estado das imagens
+            // Aqui você pode adicionar a URI da última foto tirada (veja observação abaixo)
+            Toast.makeText(context, "Foto salva em DCIM/Camera 📸", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(context, "A foto não foi tirada", Toast.LENGTH_SHORT).show()
+        }
+    }
+
 
     // ✅ Usa BoxWithConstraints para medir a altura disponível
     BoxWithConstraints(
@@ -160,6 +180,52 @@ private fun ScreenUI(viewModel: AddFaceScreenViewModel) {
                     Icon(imageVector = Icons.Default.Photo, contentDescription = "Choose photos")
                     Text(text = "Choose photos")
                 }
+
+                Button(
+                    enabled = viewModel.personNameState.value.isNotEmpty(),
+                    onClick = {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+
+                        // 👉 Cria o arquivo em DCIM/Camera na hora do clique
+                        val contentValues = android.content.ContentValues().apply {
+                            put(
+                                android.provider.MediaStore.Images.Media.DISPLAY_NAME,
+                                "photo_${System.currentTimeMillis()}.jpg"
+                            )
+                            put(android.provider.MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+                            put(android.provider.MediaStore.Images.Media.RELATIVE_PATH, "DCIM/Camera")
+                        }
+
+                        val photoUri = context.contentResolver.insert(
+                            android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                            contentValues
+                        )
+
+                        // Cria o intent para abrir a câmera
+                        val intent = android.content.Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE)
+                        intent.putExtra(android.provider.MediaStore.EXTRA_OUTPUT, photoUri)
+
+                        // 👇 Tenta forçar câmera frontal
+                        intent.putExtra("android.intent.extras.CAMERA_FACING", 1)
+                        intent.putExtra("android.intent.extra.USE_FRONT_CAMERA", true)
+                        intent.putExtra("android.intent.extras.LENS_FACING_FRONT", 1)
+
+                        // Lança a câmera
+                        cameraLauncher.launch(intent)
+
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = colorResource(id = R.color.md_orange), // Cor de fundo do botão
+                        contentColor = Color.White, // Cor do texto e ícones
+                        disabledContainerColor = Color.Gray, // Cor de fundo quando desabilitado
+                        disabledContentColor = Color.LightGray // Cor do texto e ícones quando desabilitado
+                    )
+                ) {
+                    Icon(imageVector = Icons.Default.Photo, contentDescription = "Take Photo")
+                    Text(text = "Take photos")
+                }
+
 
                 DelayedVisibility(viewModel.selectedImageURIs.value.isNotEmpty()) {
                     Button(
