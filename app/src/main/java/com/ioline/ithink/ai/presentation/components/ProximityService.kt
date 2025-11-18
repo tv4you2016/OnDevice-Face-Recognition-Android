@@ -65,13 +65,21 @@ class ProximityService : Service(), SensorEventListener {
 
     override fun onSensorChanged(event: SensorEvent?) {
         if (event?.sensor?.type == Sensor.TYPE_PROXIMITY) {
-            val isNear = event.values[0] < (proximitySensor?.maximumRange ?: 0f)
-            Log.d("ProximityService", if (isNear) "👆 PERTO" else "✋ LONGE")
+            //val isNear = event.values[0] < (proximitySensor?.maximumRange ?: 0f)
+            //Log.d("ProximityService", if (isNear) "👆 PERTO" else "✋ LONGE")
 
-            if (isNear) {
-                val intent = Intent("com.ioline.OPEN_TARGET_APP")
-                sendBroadcast(intent)
-            }
+            val distance = event.values[0]
+            Log.d("ProximityService", "Sensor: $distance cm")
+
+            // Envia broadcast para a UI
+            val intent = Intent("PROXIMITY_SENSOR_UPDATE")
+            intent.putExtra("distance", distance)
+            sendBroadcast(intent)
+
+            //if (isNear) {
+            //    val intent = Intent("com.ioline.OPEN_TARGET_APP")
+            //    sendBroadcast(intent)
+            //}
         }
     }
 

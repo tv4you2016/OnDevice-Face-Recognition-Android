@@ -133,7 +133,10 @@ class FaceDetectionService : Service() {
                 }
                 Log.i("IOLine", "Detectado: $personName")
                 //openlockNowApp(applicationContext)
-                if (personName.isEmpty() || personName != "Not recognized") openTargetApp(applicationContext,true)
+                if (personName.isEmpty() || personName != "Not recognized") {
+                    openTargetApp(applicationContext, true)
+
+                }
             }
 
             withContext(Dispatchers.Main) {

@@ -35,14 +35,16 @@ import org.koin.androidx.compose.koinViewModel
 @Composable
 fun ProximitySensor(
     onAddFaceClick: () -> Unit,
+    viewModel: ProximitySensorViewModel = koinViewModel()
 ) {
+    val sliderValue by viewModel.sensitivity.collectAsState()
+    val sensorValue by viewModel.sensorReading.collectAsState()
+
     FaceNetAndroidTheme {
         Scaffold(
             containerColor = Color.Black,
             modifier = Modifier.fillMaxSize(),
         ) { innerPadding ->
-
-            var sliderValue by remember { mutableFloatStateOf(85f) }
 
             Column(
                 modifier = Modifier
@@ -60,40 +62,39 @@ fun ProximitySensor(
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
 
-                // Slider com bola redonda personalizada 🎯
                 Slider(
-
                     value = sliderValue,
-                    onValueChange = { newValue -> sliderValue = newValue },
+                    onValueChange = { viewModel.updateSensitivity(it) },
                     valueRange = 0f..100f,
-                    steps = 0, // Remove os passos, linha contínua
                     colors = SliderDefaults.colors(
                         activeTrackColor = colorResource(id = R.color.md_orange),
                         inactiveTrackColor = Color.Gray,
-                        thumbColor = colorResource(id = R.color.md_orange),  // Colorindo a bolinha de laranja
-                        activeTickColor = colorResource(id = R.color.md_orange),
-                        inactiveTickColor = Color.Gray,
-
-                        disabledThumbColor= colorResource(id = R.color.md_orange),
-                        disabledActiveTrackColor= colorResource(id = R.color.md_orange),
-                        disabledActiveTickColor= colorResource(id = R.color.md_orange),
-                        disabledInactiveTrackColor= colorResource(id = R.color.md_orange),
-                        disabledInactiveTickColor= colorResource(id = R.color.md_orange),
+                        thumbColor = colorResource(id = R.color.md_orange),
                     ),
-
-
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(96.dp) // aqui você aumenta a altura do slider
+                        .height(96.dp)
                 )
 
+                // Mostra o valor ajustado
                 Text(
-                    text = "Current value: ${sliderValue.toInt()}%", // 🔹 mostra como % inteiro
+                    text = "Sensitivity: ${sliderValue.toInt()}%",
                     color = Color.LightGray,
                     fontSize = 14.sp,
                     modifier = Modifier.padding(top = 8.dp)
+                )
+
+                // Mostra o valor real do sensor 🔥🔥🔥
+                Text(
+                    text = "Sensor Reading: ${sensorValue} cm",
+                    color = colorResource(id = R.color.md_orange),
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(top = 20.dp)
                 )
             }
         }
     }
 }
+
+

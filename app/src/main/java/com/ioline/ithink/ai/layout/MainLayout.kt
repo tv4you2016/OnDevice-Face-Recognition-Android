@@ -338,6 +338,8 @@ fun AppContent(context: Context) {
                                         cameraEnabled = false
                                         noneEnabled = false
 
+
+
                                         FaceDetectionService.stop(context)
 
                                         context.stopService(
@@ -347,9 +349,11 @@ fun AppContent(context: Context) {
                                             )
                                         )
 
+
                                         pendingProximityStart = isChecked
 
                                     } else {
+
                                         context.stopService(
                                             Intent(
                                                 context,
@@ -821,3 +825,5 @@ fun LoginScreen(savedCode: String, onLoginSuccess: () -> Unit) {
         }
     }
 }
+
+
