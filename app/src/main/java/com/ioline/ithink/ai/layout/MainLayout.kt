@@ -31,6 +31,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.FaceRetouchingNatural
+import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -70,8 +71,10 @@ import com.ioline.ithink.ai.presentation.screens.add_face.AddFaceScreen
 import com.ioline.ithink.ai.presentation.screens.camera_sensor.CameraSensor
 import com.ioline.ithink.ai.presentation.screens.face_list.FaceListScreen
 import com.ioline.ithink.ai.presentation.screens.proximity_sensor.ProximitySensor
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 
 // Definindo as opções disponíveis
@@ -86,7 +89,8 @@ enum class AppDestinations(
     val label: String,
     val icon: Int,
 ) {
-    HOME("Home", R.drawable.ic_mordomus_ithink)
+    HOME("Home", R.drawable.ic_mordomus_ithink),
+    APPLY("Save",R.drawable.ic_save),
 }
 
 
@@ -95,7 +99,7 @@ fun MainLayout(navController: NavController) {
 
     val context = LocalContext.current
 
-    var isAuthenticated by remember { mutableStateOf(false) }
+    var isAuthenticated by remember { mutableStateOf(true) } ///FALSE -> porque já nao querem o a pagina de login
     var appReady by remember { mutableStateOf(false) }
 
     val prefs = context.getSharedPreferences("app_prefs", MODE_PRIVATE)
@@ -135,8 +139,8 @@ fun MainLayout(navController: NavController) {
 
         } else {
 
-           // AppContent(context)
-            Box(Modifier.fillMaxSize().background(Color.Red))
+            AppContent(context)
+           //Box(Modifier.fillMaxSize().background(Color.Red))
 
         }
 
@@ -162,10 +166,13 @@ fun LoadingScreen() {
 @Composable
 fun AppContent(context: Context) {
     var isLoading by remember { mutableStateOf(false) }
+    var pendingProximityStart by remember { mutableStateOf(false) }
 
     var overlayVisible by remember { mutableStateOf(false) }
 
-    var expandedOption by remember { mutableStateOf<Option?>(Option.FacialDetection) }
+    //var expandedOption by remember { mutableStateOf<Option?>(Option.FacialDetection) }
+    var expandedOption by remember { mutableStateOf<Option?>(null) }
+
     var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
 
     val coroutineScope = rememberCoroutineScope()
@@ -173,9 +180,9 @@ fun AppContent(context: Context) {
     val listState = rememberLazyListState()
 
     var proximityEnabled by remember { mutableStateOf(false) }
-    var facialEnabled by remember { mutableStateOf(true) }
+    var facialEnabled by remember { mutableStateOf(false) }
     var cameraEnabled by remember { mutableStateOf(false) }
-    var noneEnabled by remember { mutableStateOf(false) }
+    var noneEnabled by remember { mutableStateOf(true) }
 
     val settingsOptions = listOf(
         Option.ProximityDetection,
@@ -183,6 +190,21 @@ fun AppContent(context: Context) {
         Option.CameraDetection,
         Option.None
     )
+
+
+    LaunchedEffect(pendingProximityStart) {
+        if (pendingProximityStart) {
+            withFrameNanos {}
+            delay(120)
+
+            val intent = Intent(context, ProximityService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
+        }
+    }
 
     Scaffold(
         containerColor = Color(0xFF000000),
@@ -230,10 +252,13 @@ fun AppContent(context: Context) {
                             if (destination == AppDestinations.HOME) {
                                 isLoading = true
                                 coroutineScope.launch {
+                                    delay(800)   // <-- coloca 800 ms ANTES do openTargetApp tempo para aparece o loading
                                     openTargetApp(context, true)
-                                   // kotlinx.coroutines.delay(2000)
                                     isLoading = false
                                 }
+                            }
+                            if (destination == AppDestinations.APPLY) {
+
                             }
                         },
                         colors = NavigationBarItemDefaults.colors(
@@ -314,6 +339,7 @@ fun AppContent(context: Context) {
                                         noneEnabled = false
 
                                         FaceDetectionService.stop(context)
+
                                         context.stopService(
                                             Intent(
                                                 context,
@@ -321,13 +347,8 @@ fun AppContent(context: Context) {
                                             )
                                         )
 
-                                        val intent =
-                                            Intent(context, ProximityService::class.java)
-                                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                                            context.startForegroundService(intent)
-                                        } else {
-                                            context.startService(intent)
-                                        }
+                                        pendingProximityStart = isChecked
+
                                     } else {
                                         context.stopService(
                                             Intent(
@@ -612,16 +633,35 @@ private fun SettingItemContent(
     description: String?,
     onAddFaceClick: () -> Unit
 ) {
-    val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+    var loadHeavyContent by remember { mutableStateOf(false) }
+
+    // Quando expande a opção
+    LaunchedEffect(option) {
+        withFrameNanos {}
+        delay(60)
+        loadHeavyContent = true
+    }
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            // Altura adaptável e limitada
-            .animateContentSize() // 👈 adiciona animação de expansão suave
-            .padding(top = 12.dp, bottom = 12.dp) // 👈 espaço acima/abaixo do conteúdo
-            .heightIn(min = 120.dp, max = 240.dp) // 👈 não enche o ecrã
+            .animateContentSize()
+            .padding(top = 12.dp, bottom = 12.dp)
+            .heightIn(min = 120.dp, max = 260.dp)
     ) {
+
+        if (!loadHeavyContent) {
+            // Placeholder leve
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = colorResource(id = R.color.md_orange))
+            }
+            return
+        }
+
+        // CARREGAMENTO PESADO SÓ AQUI
         when (option) {
             Option.FacialDetection -> FaceListScreen(onAddFaceClick = onAddFaceClick)
             Option.ProximityDetection -> ProximitySensor(onAddFaceClick = onAddFaceClick)
@@ -635,6 +675,7 @@ private fun SettingItemContent(
         }
     }
 }
+
 
 
 @Composable
