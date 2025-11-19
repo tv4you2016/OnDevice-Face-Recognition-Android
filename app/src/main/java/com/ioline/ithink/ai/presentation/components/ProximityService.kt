@@ -19,6 +19,13 @@ class ProximityService : Service(), SensorEventListener {
     private lateinit var sensorManager: SensorManager
     private var proximitySensor: Sensor? = null
 
+
+    companion object {
+        var sensorName: String? = null
+        var sensorVendor: String? = null
+        var sensorMaxRange: Float? = null
+    }
+
     override fun onCreate() {
         super.onCreate()
         startForegroundService()
@@ -27,8 +34,17 @@ class ProximityService : Service(), SensorEventListener {
         proximitySensor = sensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY)
 
         if (proximitySensor != null) {
+            // Salva os dados do sensor nas variáveis do companion object
+            sensorName = proximitySensor?.name
+            sensorVendor = proximitySensor?.vendor
+            sensorMaxRange = proximitySensor?.maximumRange
+
+            Log.d(
+                "ProximityService",
+                "📡 Sensor: Name=$sensorName, Vendor=$sensorVendor, MaxRange=$proximitySensor?.maximumRange"
+            )
+
             sensorManager.registerListener(this, proximitySensor, SensorManager.SENSOR_DELAY_NORMAL)
-            Log.d("ProximityService", "📡 Escutando sensor de proximidade...")
         } else {
             Log.d("ProximityService", "❌ Sensor de proximidade não disponível.")
             stopSelf()
@@ -41,7 +57,7 @@ class ProximityService : Service(), SensorEventListener {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val chan = NotificationChannel(
-                channelId, channelName, NotificationManager.IMPORTANCE_LOW
+                channelId, channelName, NotificationManager.IMPORTANCE_HIGH
             )
             val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
             manager.createNotificationChannel(chan)
@@ -65,21 +81,12 @@ class ProximityService : Service(), SensorEventListener {
 
     override fun onSensorChanged(event: SensorEvent?) {
         if (event?.sensor?.type == Sensor.TYPE_PROXIMITY) {
-            //val isNear = event.values[0] < (proximitySensor?.maximumRange ?: 0f)
-            //Log.d("ProximityService", if (isNear) "👆 PERTO" else "✋ LONGE")
-
             val distance = event.values[0]
-            Log.d("ProximityService", "Sensor: $distance cm")
+            Log.d("ProximityService", "Sensor: $distance cm / MaxRange: ${proximitySensor?.maximumRange}")
 
-            // Envia broadcast para a UI
-            val intent = Intent("PROXIMITY_SENSOR_UPDATE")
-            intent.putExtra("distance", distance)
-            sendBroadcast(intent)
-
-            //if (isNear) {
-            //    val intent = Intent("com.ioline.OPEN_TARGET_APP")
-            //    sendBroadcast(intent)
-            //}
+           val intent = Intent("PROXIMITY_SENSOR_UPDATE")
+           intent.putExtra("distance", distance)
+           sendBroadcast(intent)
         }
     }
 

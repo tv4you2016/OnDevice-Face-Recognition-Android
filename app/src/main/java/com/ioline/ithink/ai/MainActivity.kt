@@ -61,6 +61,7 @@ class MainActivity : ComponentActivity() {
                     startDestination = "main_layout"
                 ) {
                     composable("main_layout") {
+
                         MainLayout(
                             navController = navController
                         )

@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
@@ -23,35 +24,15 @@ class ProximitySensorViewModel(application: Application) : AndroidViewModel(appl
     private val _sensorReading = MutableStateFlow(0f)
     val sensorReading: StateFlow<Float> = _sensorReading
 
-    private val _sensitivity = MutableStateFlow(50f)
+    private val _sensitivity = MutableStateFlow(3f)
     val sensitivity: StateFlow<Float> = _sensitivity
 
     fun updateSensitivity(value: Float) {
         _sensitivity.value = value
     }
 
-    private val proximityReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            val distance = intent?.getFloatExtra("distance", 0f) ?: 0f
-            viewModelScope.launch {
-                _sensorReading.value = distance
-            }
-        }
-    }
-
-    init {
-        // Registra o receiver
-        val filter = IntentFilter("PROXIMITY_SENSOR_UPDATE")
-        ContextCompat.registerReceiver(
-            application,
-            proximityReceiver,
-            filter,
-            ContextCompat.RECEIVER_NOT_EXPORTED
-        )
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        getApplication<Application>().unregisterReceiver(proximityReceiver)
+    // Chamado pelo receiver no Composable
+    fun updateSensor(value: Float) {
+        _sensorReading.value = value
     }
 }

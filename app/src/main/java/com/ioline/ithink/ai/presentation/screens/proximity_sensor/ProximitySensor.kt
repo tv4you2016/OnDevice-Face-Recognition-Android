@@ -1,5 +1,12 @@
 package com.ioline.ithink.ai.presentation.screens.proximity_sensor
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.hardware.Sensor
+import android.hardware.SensorManager
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -18,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -27,8 +35,31 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ioline.ithink.ai.R
 import com.ioline.ithink.ai.data.PersonRecord
+import com.ioline.ithink.ai.layout.getProximitySensorInfo
+import com.ioline.ithink.ai.presentation.components.ProximityService
 import com.ioline.ithink.ai.presentation.theme.FaceNetAndroidTheme
 import org.koin.androidx.compose.koinViewModel
+
+
+@Composable
+fun getProximitySensorInfo(context: Context): Triple<String?, String?, Float?> {
+    val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+    val proximitySensor = sensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY)
+
+    return if (proximitySensor != null) {
+        Log.d("ProximityInfo", "Nome do sensor: ${proximitySensor.name}")
+        Log.d("ProximityInfo", "Fabricante: ${proximitySensor.vendor}")
+        Log.d("ProximityInfo", "Alcance máximo: ${proximitySensor.maximumRange}")
+
+        Triple(
+            proximitySensor.name,    // sensorName
+            proximitySensor.vendor,  // sensorVendor
+            proximitySensor.maximumRange  // sensorMaxRange
+        )
+    } else {
+        Triple(null, null, null) // Sensor não disponível
+    }
+}
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -37,8 +68,45 @@ fun ProximitySensor(
     onAddFaceClick: () -> Unit,
     viewModel: ProximitySensorViewModel = koinViewModel()
 ) {
-    val sliderValue by viewModel.sensitivity.collectAsState()
+    val context = LocalContext.current
+
     val sensorValue by viewModel.sensorReading.collectAsState()
+    val sliderValue by viewModel.sensitivity.collectAsState()
+    //val maxRange = ProximityService.sensorMaxRange ?: 5f
+
+
+    val (proximityName, proximityVendor, maxRange) = getProximitySensorInfo(context)
+    var safeMaxRange = maxRange ?: 5f
+
+    if (proximityName == "Proximity sensor" && proximityVendor == "The Android Open Source Project") {
+        safeMaxRange = 60000f
+    }
+    // RECEBE O BROADCAST CORRETAMENTE
+    DisposableEffect(Unit) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(ctx: Context?, intent: Intent?) {
+
+                val distance = intent?.getFloatExtra("distance", 0f) ?: 0f
+                viewModel.updateSensor(distance)
+                Log.d("ProximityService", "EVENT RECEIVED in Compose! $distance")
+            }
+        }
+
+        val filter = IntentFilter("PROXIMITY_SENSOR_UPDATE")
+
+        // ANDROID 14 FIX 🚨
+        context.registerReceiver(
+            receiver,
+            filter,
+            Context.RECEIVER_EXPORTED
+        )
+
+        onDispose {
+            context.unregisterReceiver(receiver)
+        }
+    }
+
+
 
     FaceNetAndroidTheme {
         Scaffold(
@@ -62,31 +130,32 @@ fun ProximitySensor(
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
 
-                Slider(
-                    value = sliderValue,
-                    onValueChange = { viewModel.updateSensitivity(it) },
-                    valueRange = 0f..100f,
-                    colors = SliderDefaults.colors(
-                        activeTrackColor = colorResource(id = R.color.md_orange),
-                        inactiveTrackColor = Color.Gray,
-                        thumbColor = colorResource(id = R.color.md_orange),
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(96.dp)
-                )
+                Column {
+                    Text(text = "Distância: ${sliderValue}")
+                    Slider(
+                        value = sliderValue,
+                        onValueChange = { viewModel.updateSensitivity(it) },
+                        valueRange = 0f..safeMaxRange,
+                        colors = SliderDefaults.colors(
+                            activeTrackColor = colorResource(id = R.color.md_orange),
+                            inactiveTrackColor = Color.Gray,
+                            thumbColor = colorResource(id = R.color.md_orange),
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(96.dp)
+                    )
+                }
 
-                // Mostra o valor ajustado
                 Text(
-                    text = "Sensitivity: ${sliderValue.toInt()}%",
+                    text = "Sensitivity: ${sliderValue.toInt()}",
                     color = Color.LightGray,
                     fontSize = 14.sp,
                     modifier = Modifier.padding(top = 8.dp)
                 )
 
-                // Mostra o valor real do sensor 🔥🔥🔥
                 Text(
-                    text = "Sensor Reading: ${sensorValue} cm",
+                    text = "Sensor Reading: ${sensorValue.toInt()}",
                     color = colorResource(id = R.color.md_orange),
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
@@ -96,5 +165,7 @@ fun ProximitySensor(
         }
     }
 }
+
+
 
 
