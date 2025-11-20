@@ -16,8 +16,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -26,7 +24,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Face
@@ -37,12 +34,10 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
@@ -54,7 +49,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.core.content.edit
-import androidx.navigation.NavController
 import com.ioline.ithink.ai.presentation.components.ProximityService
 import com.ioline.ithink.ai.AppUtils.openTargetApp
 import com.ioline.ithink.ai.R
@@ -87,9 +81,16 @@ enum class AppDestinations(
     APPLY("Save",R.drawable.ic_save),
 }
 
+// Lista de opções de detecção
+val settingsOptions = listOf(
+    Option.ProximityDetection,
+    Option.FacialDetection,
+    Option.CameraDetection,
+    Option.None
+)
 
 @Composable
-fun MainLayout(navController: NavController) {
+fun MainLayout() {
 
     val context = LocalContext.current
 
@@ -182,75 +183,66 @@ fun rememberProximitySensorInfo(context: Context): Triple<String?, String?, Floa
         getProximitySensorInfo(context)
     }
 }
-@androidx.annotation.OptIn(ExperimentalGetImage::class)
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalGetImage::class)
 @Composable
 fun AppContent() {
 
     val context = LocalContext.current
-    val settingsStore = remember { SettingsDataStore(context) }
-    val coroutineScope = rememberCoroutineScope()
 
-    // Flow do DataStore
+    // Dados de configuração
+    val settingsStore = remember { SettingsDataStore(context) }
     val settings by settingsStore.settingsFlow.collectAsState(initial = AppSettings())
 
-    // Estados
-    var currentSettings by remember { mutableStateOf(settings) }
-    var expandedOption by remember { mutableStateOf<Option?>(settings.detectionType) }
-    var overlayVisible by remember { mutableStateOf(false) }
-    var isLoading by remember { mutableStateOf(false) }
-    var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
+    var currentSettings by remember { mutableStateOf(AppSettings()) }
 
+    LaunchedEffect(settings) {
+        currentSettings = settings
+    }
+
+    // Estados de UI
+    var isLoading by remember { mutableStateOf(false) }
+    var overlayVisible by remember { mutableStateOf(false) }
+
+    var expandedOption by remember { mutableStateOf<Option?>(currentSettings.detectionType) }
+    LaunchedEffect(currentSettings) {
+        expandedOption = currentSettings.detectionType
+    }
+
+    val coroutineScope = rememberCoroutineScope()
     val listState = rememberLazyListState()
 
-    val settingsOptions = remember {
-        listOf(
-            Option.ProximityDetection,
-            Option.FacialDetection,
-            Option.CameraDetection,
-            Option.None
-        )
-    }
 
-    val optionIcons = remember {
-        mapOf(
-            Option.ProximityDetection to Icons.Default.Sensors,
-            Option.FacialDetection to Icons.Default.FaceRetouchingNatural,
-            Option.CameraDetection to Icons.Default.Face,
-            Option.None to Icons.Default.Close
-        )
-    }
 
-    // Informações do sensor (uma vez)
+    // Informação do sensor de proximidade
     val (proximityName, proximityVendor, proximityMaxRange) = rememberProximitySensorInfo(context)
 
-    val showExpandedBlock by remember { derivedStateOf { expandedOption != null } }
+    // Função auxiliar para iniciar o serviço de proximidade quando necessário
+    fun startProximityServiceIfNeeded(option: Option) {
+        if (option == Option.ProximityDetection &&
+            proximityName != "prox_stk3311" &&
+            proximityVendor != "sensortek"
+        ) {
+            val intent = Intent(context, ProximityService::class.java)
+            context.startForegroundService(intent)
+        }
+    }
 
     Scaffold(
-        containerColor = Color(0xFF000000),
+        containerColor = Color.Black,
         topBar = {
             TopAppBar(
                 title = { Text("Mordomus Tavo", color = Color.White, fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF000000)),
-                actions = {
-                    if (overlayVisible) {
-                        IconButton(onClick = { overlayVisible = false }) {
-                            Icon(Icons.AutoMirrored.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
-                        }
-                    }
-                }
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Black)
             )
         },
         bottomBar = {
-            NavigationBar(modifier = Modifier.height(75.dp), containerColor = Color(0xFF000000)) {
+            NavigationBar(modifier = Modifier.height(75.dp),containerColor = Color(0xFF000000)
+            ) {
                 AppDestinations.entries.forEach { destination ->
                     NavigationBarItem(
-                        icon = {
-                            Icon(painterResource(id = destination.icon), contentDescription = destination.label, modifier = Modifier.size(44.dp))
-                        },
-                        selected = destination == currentDestination,
+                        icon = { Icon(painterResource(id = destination.icon), tint = Color.Unspecified,contentDescription = destination.label, modifier = Modifier.size(44.dp)) },
+                        selected = destination == AppDestinations.HOME,
                         onClick = {
-                            currentDestination = destination
                             if (destination == AppDestinations.HOME) {
                                 isLoading = true
                                 coroutineScope.launch {
@@ -258,9 +250,10 @@ fun AppContent() {
                                     openTargetApp(context, true)
                                     isLoading = false
                                 }
-                            }
-                            if (destination == AppDestinations.APPLY) {
-                                coroutineScope.launch { settingsStore.saveSettings(currentSettings) }
+                            } else if (destination == AppDestinations.APPLY) {
+                                coroutineScope.launch {
+                                    settingsStore.saveSettings(currentSettings)
+                                }
                             }
                         },
                         colors = NavigationBarItemDefaults.colors(
@@ -274,70 +267,60 @@ fun AppContent() {
         }
     ) { paddingValues ->
 
-        Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier
+                .padding(paddingValues)
+                .padding(horizontal = 10.dp)
+                .fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 80.dp)
+        ) {
 
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.padding(horizontal = 10.dp).fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 80.dp)
-            ) {
-
-                item {
-                    DetectionTypeSection(
-                        settingsOptions = settingsOptions,
-                        optionIcons = optionIcons,
-                        expandedOption = expandedOption,
-                        currentSettings = currentSettings,
-                        onOptionSelected = { selectedOption ->
-                            expandedOption = selectedOption
-                            currentSettings = currentSettings.copy(detectionType = selectedOption)
-
-                            when (selectedOption) {
-                                Option.ProximityDetection -> {
-                                    if (proximityName != "prox_stk3311" && proximityVendor != "sensortek") {
-                                        val intent = Intent(context, ProximityService::class.java)
-                                        context.startForegroundService(intent)
-                                    }
-                                }
-                                else -> {}
-                            }
-                        }
-                    )
-                }
-
-                item {
-                    AnimatedVisibility(
-                        visible = showExpandedBlock,
-                        enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }),
-                        exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 2 })
-                    ) {
-                        ExpandedOptionContent(
-                            expandedOption = expandedOption,
-                            overlayVisible = overlayVisible,
-                            onOverlayChange = { overlayVisible = it }
-                        )
+            // Seção de seleção de tipo de detecção
+            item {
+                DetectionTypeSection(
+                    settingsOptions = settingsOptions,
+                    expandedOption = expandedOption,
+                    onOptionSelected = { selectedOption ->
+                        expandedOption = selectedOption
+                        currentSettings = currentSettings.copy(detectionType = selectedOption)
+                        startProximityServiceIfNeeded(selectedOption)
                     }
+
+                )
+            }
+
+            // Conteúdo dinâmico do item expandido
+            item {
+                AnimatedVisibility(expandedOption != null) {
+                    ExpandedOptionContent(
+                        expandedOption = expandedOption,
+                        onOverlayChange = { overlayVisible = it }
+                    )
                 }
             }
         }
-    }
 
-    AnimatedVisibility(visible = isLoading, enter = fadeIn(), exit = fadeOut()) {
-        Box(
-            modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)).zIndex(10f),
-            contentAlignment = Alignment.Center
-        ) {
-            AppLoading(size = 80.dp)
+        // Overlay de loading
+        AnimatedVisibility(isLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.4f))
+                    .zIndex(10f),
+                contentAlignment = Alignment.Center
+            ) {
+                AppLoading(size = 80.dp)
+            }
         }
     }
 }
 
+
 @Composable
 fun DetectionTypeSection(
     settingsOptions: List<Option>,
-    optionIcons: Map<Option, ImageVector>,
     expandedOption: Option?,
-    currentSettings: AppSettings,
     onOptionSelected: (Option) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
@@ -354,7 +337,6 @@ fun DetectionTypeSection(
 @Composable
 fun ExpandedOptionContent(
     expandedOption: Option?,
-    overlayVisible: Boolean,
     onOverlayChange: (Boolean) -> Unit
 ) {
     Box(
@@ -367,6 +349,7 @@ fun ExpandedOptionContent(
             else -> {}
         }
     }
+
 }
 
 
