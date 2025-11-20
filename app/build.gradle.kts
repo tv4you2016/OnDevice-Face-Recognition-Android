@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.android)
     alias(libs.plugins.compose.compiler)
     id("com.google.devtools.ksp")
+    kotlin("plugin.serialization") version "2.2.21"
 }
 
 android {
@@ -41,21 +42,27 @@ android {
             signingConfig = signingConfigs.getByName("release")
         }
     }
+
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
+
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "17"
+        languageVersion = "2.2"
     }
+
     buildFeatures {
         compose = true
     }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+
     applicationVariants.configureEach {
         kotlin.sourceSets {
             getByName(name) {
@@ -70,9 +77,12 @@ ksp {
 }
 
 dependencies {
+    // Core & Lifecycle
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
+
+    // Compose
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
@@ -85,27 +95,27 @@ dependencies {
     implementation(libs.androidx.lifecycle.service)
     implementation(libs.androidx.compose.foundation)
 
-    // ObjectBox - vector database
+    // ObjectBox
     debugImplementation(libs.objectbox.android.objectbrowser)
     releaseImplementation(libs.objectbox.android)
 
-    // dependency injection
+    // Koin
     implementation(libs.koin.android)
     implementation(libs.koin.annotations)
     implementation(libs.koin.androidx.compose)
     ksp(libs.koin.ksp.compiler)
 
-    // TensorFlow Lite dependencies
+    // TensorFlow Lite
     implementation(libs.tensorflow.lite)
     implementation(libs.tensorflow.lite.gpu)
     implementation(libs.tensorflow.lite.gpu.api)
     implementation(libs.tensorflow.lite.support)
 
-    // DocumentFile and ExitInterface
+    // DocumentFile & ExifInterface
     implementation(libs.androidx.documentfile)
     implementation(libs.androidx.exifinterface)
 
-    // Kotlin Coil
+    // Coil
     implementation(libs.coil)
     implementation(libs.coil.compose)
 
@@ -114,16 +124,23 @@ dependencies {
     implementation(libs.androidx.camera.lifecycle)
     implementation(libs.androidx.camera.view)
 
-    // Mediapipe Face Detection
+    // Mediapipe
     implementation(libs.tasks.vision)
 
+    // Debug tools
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+
+    // Datastore & Serialization
+    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.datastore.core)
+    implementation(libs.kotlinx.serialization.json)
 }
 
 apply(plugin = "io.objectbox")
+
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(17)
+        languageVersion.set(JavaLanguageVersion.of(17))
     }
 }

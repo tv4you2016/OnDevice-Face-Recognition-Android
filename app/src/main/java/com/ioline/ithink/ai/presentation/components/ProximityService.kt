@@ -55,13 +55,11 @@ class ProximityService : Service(), SensorEventListener {
         val channelId = "AI_CAMERA_CHANNEL"
         val channelName = "AI Camera Processing"
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val chan = NotificationChannel(
-                channelId, channelName, NotificationManager.IMPORTANCE_HIGH
-            )
-            val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-            manager.createNotificationChannel(chan)
-        }
+        val chan = NotificationChannel(
+            channelId, channelName, NotificationManager.IMPORTANCE_HIGH
+        )
+        val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        manager.createNotificationChannel(chan)
 
         val notification: Notification =
             Notification.Builder(this, channelId)

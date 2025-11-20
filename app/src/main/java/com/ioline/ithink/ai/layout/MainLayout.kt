@@ -6,12 +6,10 @@ import android.content.Context.MODE_PRIVATE
 import android.content.Intent
 import android.hardware.Sensor
 import android.hardware.SensorManager
-import android.os.Build
 import android.util.Log
 import androidx.camera.core.ExperimentalGetImage
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -22,11 +20,8 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -36,7 +31,6 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.FaceRetouchingNatural
-import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -47,10 +41,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
@@ -58,31 +50,27 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.navigation.NavController
-import com.ioline.ithink.ai.AppUtils
 import com.ioline.ithink.ai.presentation.components.ProximityService
-import com.ioline.ithink.ai.presentation.components.FaceDetectionService
 import com.ioline.ithink.ai.AppUtils.openTargetApp
 import com.ioline.ithink.ai.R
+import com.ioline.ithink.ai.settingsdatastore.AppSettings
+import com.ioline.ithink.ai.settingsdatastore.SettingsDataStore
 import com.ioline.ithink.ai.presentation.components.AppLoading
-import com.ioline.ithink.ai.presentation.components.CameraService
-import com.ioline.ithink.ai.presentation.screens.add_face.AddFaceScreen
 import com.ioline.ithink.ai.presentation.screens.camera_sensor.CameraSensor
 import com.ioline.ithink.ai.presentation.screens.face_list.FaceListScreen
 import com.ioline.ithink.ai.presentation.screens.proximity_sensor.ProximitySensor
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
 
 
 // Definindo as opções disponíveis
+@Serializable
 enum class Option {
     FacialDetection,
     ProximityDetection,
@@ -90,12 +78,6 @@ enum class Option {
     None
 }
 
-val optionIcons = mapOf(
-    Option.ProximityDetection to Icons.Default.Sensors,
-    Option.FacialDetection to Icons.Default.FaceRetouchingNatural,
-    Option.CameraDetection to Icons.Default.Face,
-    Option.None to Icons.Default.Close
-)
 
 enum class AppDestinations(
     val label: String,
@@ -151,7 +133,7 @@ fun MainLayout(navController: NavController) {
 
         } else {
 
-            AppContent(context)
+            AppContent()
            //Box(Modifier.fillMaxSize().background(Color.Red))
 
         }
@@ -174,7 +156,6 @@ fun LoadingScreen() {
 }
 
 
-@Composable
 fun getProximitySensorInfo(context: Context): Triple<String?, String?, Float?> {
     val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
     val proximitySensor = sensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY)
@@ -185,111 +166,87 @@ fun getProximitySensorInfo(context: Context): Triple<String?, String?, Float?> {
         Log.d("ProximityInfo", "Alcance máximo: ${proximitySensor.maximumRange}")
 
         Triple(
-            proximitySensor.name,    // sensorName
-            proximitySensor.vendor,  // sensorVendor
-            proximitySensor.maximumRange  // sensorMaxRange
+            proximitySensor.name,
+            proximitySensor.vendor,
+            proximitySensor.maximumRange
         )
     } else {
-        Triple(null, null, null) // Sensor não disponível
+        Triple(null, null, null)
     }
 }
 
+
+@Composable
+fun rememberProximitySensorInfo(context: Context): Triple<String?, String?, Float?> {
+    return remember {
+        getProximitySensorInfo(context)
+    }
+}
 @androidx.annotation.OptIn(ExperimentalGetImage::class)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AppContent(context: Context) {
+fun AppContent() {
 
     val context = LocalContext.current
-
-    var isLoading by remember { mutableStateOf(false) }
-    var pendingProximityStart by remember { mutableStateOf(false) }
-
-    var overlayVisible by remember { mutableStateOf(false) }
-
-    //var expandedOption by remember { mutableStateOf<Option?>(Option.FacialDetection) }
-    var expandedOption by remember { mutableStateOf<Option?>(null) }
-
-    var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
-
+    val settingsStore = remember { SettingsDataStore(context) }
     val coroutineScope = rememberCoroutineScope()
+
+    // Flow do DataStore
+    val settings by settingsStore.settingsFlow.collectAsState(initial = AppSettings())
+
+    // Estados
+    var currentSettings by remember { mutableStateOf(settings) }
+    var expandedOption by remember { mutableStateOf<Option?>(settings.detectionType) }
+    var overlayVisible by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(false) }
+    var currentDestination by rememberSaveable { mutableStateOf(AppDestinations.HOME) }
 
     val listState = rememberLazyListState()
 
-
-    val settingsOptions = listOf(
-        Option.ProximityDetection,
-        Option.FacialDetection,
-        Option.CameraDetection,
-        Option.None
-    )
-
-
-    val (proximityName, proximityVendor, proximityMaxRange) = getProximitySensorInfo(context)
-
-
-
-
-    LaunchedEffect(pendingProximityStart) {
-        if (pendingProximityStart) {
-            withFrameNanos {}
-            delay(120)
-
-            val intent = Intent(context, ProximityService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
-        }
+    val settingsOptions = remember {
+        listOf(
+            Option.ProximityDetection,
+            Option.FacialDetection,
+            Option.CameraDetection,
+            Option.None
+        )
     }
 
+    val optionIcons = remember {
+        mapOf(
+            Option.ProximityDetection to Icons.Default.Sensors,
+            Option.FacialDetection to Icons.Default.FaceRetouchingNatural,
+            Option.CameraDetection to Icons.Default.Face,
+            Option.None to Icons.Default.Close
+        )
+    }
 
+    // Informações do sensor (uma vez)
+    val (proximityName, proximityVendor, proximityMaxRange) = rememberProximitySensorInfo(context)
 
-  // ⬇ lê o sensor 1 única vez quando o layout inicializa
- //   LaunchedEffect(Unit) {
- //
- //   }
-
+    val showExpandedBlock by remember { derivedStateOf { expandedOption != null } }
 
     Scaffold(
         containerColor = Color(0xFF000000),
         topBar = {
             TopAppBar(
-                title = {
-                    Text(
-                        text = "Mordomus Tavo",
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold
-                    )
-                },
+                title = { Text("Mordomus Tavo", color = Color.White, fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFF000000)),
                 actions = {
                     if (overlayVisible) {
                         IconButton(onClick = { overlayVisible = false }) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Default.ArrowBack,
-                                contentDescription = "Navigate Back",
-                                tint = Color.White
-                            )
+                            Icon(Icons.AutoMirrored.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
                         }
                     }
                 }
             )
         },
         bottomBar = {
-            NavigationBar(
-                modifier = Modifier.height(75.dp),
-                containerColor = Color(0xFF000000)
-            ) {
+            NavigationBar(modifier = Modifier.height(75.dp), containerColor = Color(0xFF000000)) {
                 AppDestinations.entries.forEach { destination ->
                     NavigationBarItem(
                         icon = {
-                            Icon(
-                                painter = painterResource(id = destination.icon),
-                                contentDescription = destination.label,
-                                tint = Color.Unspecified,
-                                modifier = Modifier.size(44.dp)
-                            )
+                            Icon(painterResource(id = destination.icon), contentDescription = destination.label, modifier = Modifier.size(44.dp))
                         },
                         selected = destination == currentDestination,
                         onClick = {
@@ -297,13 +254,13 @@ fun AppContent(context: Context) {
                             if (destination == AppDestinations.HOME) {
                                 isLoading = true
                                 coroutineScope.launch {
-                                    delay(800)   // <-- coloca 800 ms ANTES do openTargetApp tempo para aparece o loading
+                                    delay(800)
                                     openTargetApp(context, true)
                                     isLoading = false
                                 }
                             }
                             if (destination == AppDestinations.APPLY) {
-
+                                coroutineScope.launch { settingsStore.saveSettings(currentSettings) }
                             }
                         },
                         colors = NavigationBarItemDefaults.colors(
@@ -317,113 +274,57 @@ fun AppContent(context: Context) {
         }
     ) { paddingValues ->
 
-        Box(
-            modifier = Modifier
-                .padding(paddingValues)
-                .fillMaxSize()
-        ) {
+        Box(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
 
             LazyColumn(
                 state = listState,
-                modifier = Modifier
-                    .padding(horizontal = 10.dp)
-                    .fillMaxSize(),
+                modifier = Modifier.padding(horizontal = 10.dp).fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 80.dp)
             ) {
 
                 item {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 12.dp)
-                    ) {
-                        Text(
-                            text = "Detection Type:",
-                            color = Color(0xFFff931e),
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 16.sp
-                        )
+                    DetectionTypeSection(
+                        settingsOptions = settingsOptions,
+                        optionIcons = optionIcons,
+                        expandedOption = expandedOption,
+                        currentSettings = currentSettings,
+                        onOptionSelected = { selectedOption ->
+                            expandedOption = selectedOption
+                            currentSettings = currentSettings.copy(detectionType = selectedOption)
 
-                        Spacer(modifier = Modifier.height(8.dp)) // espaço entre o texto e o combo
-
-                        DetectionTypeComboBox(
-                            options = settingsOptions,
-                            selected = expandedOption,
-                            onSelect = { selectedOption ->
-                                expandedOption = selectedOption
-                                println("Item selecionado: ${selectedOption.name}")
-                                // Aqui você pode disparar qualquer ação com o item selecionado
-                                when (selectedOption) {
-                                    Option.FacialDetection -> {
-                                        // faz algo
-
-
-                                    }
-                                    Option.ProximityDetection -> {
-
-                                        if (proximityName != "prox_stk3311" && proximityVendor != "sensortek") {
-                                            // faz outra coisa, só inicia o serviço se quiser
-                                            val intent = Intent(context, ProximityService::class.java)
-                                            context.startForegroundService(intent)
-                                        }
-
-                                    }
-                                    Option.CameraDetection -> {
-                                        // etc
-                                    }
-                                    Option.None -> {}
-                                }
-                            },
-                            onExpandChange = { currentItem, isExpanded ->
-                                if (isExpanded) {
-                                   // println("Dropdown abriu! Item atual: ${currentItem?.name}")
-                                    // aqui você pode disparar qualquer ação com o item atual
-                                }
-                            }
-                        )
-                    }
-                }
-
-
-                // 👉 BLOCO EXPANDIDO (conteúdo dinamico)
-                item {
-                    AnimatedVisibility(expandedOption != null) {
-
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 120.dp, max = 380.dp)  // 👈 altura máxima controlada
-                                .animateContentSize()
-                        ) {
-                            when (expandedOption) {
-                                Option.FacialDetection -> FaceListScreen(onAddFaceClick = { overlayVisible = true })
+                            when (selectedOption) {
                                 Option.ProximityDetection -> {
                                     if (proximityName != "prox_stk3311" && proximityVendor != "sensortek") {
-                                        ProximitySensor(onAddFaceClick = { overlayVisible = true })
+                                        val intent = Intent(context, ProximityService::class.java)
+                                        context.startForegroundService(intent)
                                     }
                                 }
-                                Option.CameraDetection -> CameraSensor(onAddFaceClick = { overlayVisible = true })
-                                Option.None -> {}
-                                null -> {}
+                                else -> {}
                             }
                         }
+                    )
+                }
 
+                item {
+                    AnimatedVisibility(
+                        visible = showExpandedBlock,
+                        enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }),
+                        exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 2 })
+                    ) {
+                        ExpandedOptionContent(
+                            expandedOption = expandedOption,
+                            overlayVisible = overlayVisible,
+                            onOverlayChange = { overlayVisible = it }
+                        )
                     }
                 }
             }
         }
     }
 
-    AnimatedVisibility(
-        visible = isLoading,
-        enter = fadeIn(),
-        exit = fadeOut()
-    ) {
+    AnimatedVisibility(visible = isLoading, enter = fadeIn(), exit = fadeOut()) {
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.4f))
-                .zIndex(10f),
+            modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)).zIndex(10f),
             contentAlignment = Alignment.Center
         ) {
             AppLoading(size = 80.dp)
@@ -431,8 +332,42 @@ fun AppContent(context: Context) {
     }
 }
 
+@Composable
+fun DetectionTypeSection(
+    settingsOptions: List<Option>,
+    optionIcons: Map<Option, ImageVector>,
+    expandedOption: Option?,
+    currentSettings: AppSettings,
+    onOptionSelected: (Option) -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+        Text("Detection Type:", color = Color(0xFFff931e), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+        Spacer(modifier = Modifier.height(8.dp))
+        DetectionTypeComboBox(
+            options = settingsOptions,
+            selected = expandedOption,
+            onSelect = onOptionSelected
+        )
+    }
+}
 
-
+@Composable
+fun ExpandedOptionContent(
+    expandedOption: Option?,
+    overlayVisible: Boolean,
+    onOverlayChange: (Boolean) -> Unit
+) {
+    Box(
+        modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp, max = 380.dp).animateContentSize()
+    ) {
+        when (expandedOption) {
+            Option.FacialDetection -> FaceListScreen(onAddFaceClick = { onOverlayChange(true) })
+            Option.ProximityDetection -> ProximitySensor(onAddFaceClick = { onOverlayChange(true) })
+            Option.CameraDetection -> CameraSensor(onAddFaceClick = { onOverlayChange(true) })
+            else -> {}
+        }
+    }
+}
 
 
 
