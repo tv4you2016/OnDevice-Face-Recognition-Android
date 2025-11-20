@@ -2,7 +2,6 @@ package com.ioline.ithink.ai.layout
 
 
 import android.content.Context
-import android.content.Context.MODE_PRIVATE
 import android.content.Intent
 import android.hardware.Sensor
 import android.hardware.SensorManager
@@ -21,16 +20,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.FaceRetouchingNatural
 import androidx.compose.material.icons.filled.Sensors
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
@@ -39,19 +34,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
-import androidx.core.content.edit
+import androidx.core.content.ContextCompat.startForegroundService
 import com.ioline.ithink.ai.presentation.components.ProximityService
 import com.ioline.ithink.ai.AppUtils.openTargetApp
+import com.ioline.ithink.ai.AutoDismissDialog
+import com.ioline.ithink.ai.PeriodicAppLauncherService
 import com.ioline.ithink.ai.R
+import com.ioline.ithink.ai.TouchOverlay
 import com.ioline.ithink.ai.settingsdatastore.AppSettings
 import com.ioline.ithink.ai.settingsdatastore.SettingsDataStore
 import com.ioline.ithink.ai.presentation.components.AppLoading
@@ -78,7 +72,7 @@ enum class AppDestinations(
     val icon: Int,
 ) {
     HOME("Home", R.drawable.ic_mordomus_ithink),
-    APPLY("Save",R.drawable.ic_save),
+    SAVE("Save",R.drawable.ic_save),
 }
 
 // Lista de opções de detecção
@@ -89,60 +83,50 @@ val settingsOptions = listOf(
     Option.None
 )
 
+
 @Composable
 fun MainLayout() {
 
-    val context = LocalContext.current
-
-    var isAuthenticated by remember { mutableStateOf(true) } ///FALSE -> porque já nao querem o a pagina de login
     var appReady by remember { mutableStateOf(false) }
 
-    val prefs = context.getSharedPreferences("app_prefs", MODE_PRIVATE)
-    if (!prefs.contains("access_code")) {
-        prefs.edit { putString("access_code", "1234") }
-    }
-
-    val savedCode = prefs.getString("access_code", "1234") ?: "1234"
-
     AnimatedContent(
-        targetState = isAuthenticated to appReady,
+        targetState = appReady,
         transitionSpec = {
             fadeIn(tween(450)) + scaleIn(initialScale = 0.9f) togetherWith
                     fadeOut(tween(300)) + scaleOut(targetScale = 0.9f)
         }
-    ) { (authenticated, ready) ->
-
-        if (!authenticated) {
-
-            LoginScreen(
-                savedCode = savedCode,
-                onLoginSuccess = {
-                    isAuthenticated = true
-                }
-            )
-
-        } else if (!ready) {
-
+    ) { ready ->
+        if (!ready) {
             LoadingScreen()
-
             // Preload corre apenas quando authenticated = true e ready = false
             LaunchedEffect(Unit) {
                 withFrameNanos { }
                 delay(250)  // <-- 1 frame extra para Compose respirar
                 appReady = true
             }
-
         } else {
-
             AppContent()
-           //Box(Modifier.fillMaxSize().background(Color.Red))
-
         }
-
     }
-
 }
 
+// Função auxiliar para iniciar os serviços
+fun startServiceIfNeeded(context:Context, option: Option) {
+    // Mostra overlay
+    val overlay = TouchOverlay(context) {
+        Log.d("MainActivity", "Overlay callback acionado")
+    }
+    overlay.show()
+
+    val intent = Intent(context, PeriodicAppLauncherService::class.java)
+    startForegroundService(context,intent)
+
+    if (option == Option.ProximityDetection)
+    {
+        val intent = Intent(context, ProximityService::class.java)
+        context.startForegroundService(intent)
+    }
+}
 
 @Composable
 fun LoadingScreen() {
@@ -183,9 +167,10 @@ fun rememberProximitySensorInfo(context: Context): Triple<String?, String?, Floa
         getProximitySensorInfo(context)
     }
 }
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalGetImage::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppContent() {
+    var showDialog by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
 
@@ -201,31 +186,18 @@ fun AppContent() {
 
     // Estados de UI
     var isLoading by remember { mutableStateOf(false) }
-    var overlayVisible by remember { mutableStateOf(false) }
 
     var expandedOption by remember { mutableStateOf<Option?>(currentSettings.detectionType) }
     LaunchedEffect(currentSettings) {
         expandedOption = currentSettings.detectionType
     }
+    startServiceIfNeeded(context,currentSettings.detectionType)
+
 
     val coroutineScope = rememberCoroutineScope()
     val listState = rememberLazyListState()
 
 
-
-    // Informação do sensor de proximidade
-    val (proximityName, proximityVendor, proximityMaxRange) = rememberProximitySensorInfo(context)
-
-    // Função auxiliar para iniciar o serviço de proximidade quando necessário
-    fun startProximityServiceIfNeeded(option: Option) {
-        if (option == Option.ProximityDetection &&
-            proximityName != "prox_stk3311" &&
-            proximityVendor != "sensortek"
-        ) {
-            val intent = Intent(context, ProximityService::class.java)
-            context.startForegroundService(intent)
-        }
-    }
 
     Scaffold(
         containerColor = Color.Black,
@@ -250,9 +222,11 @@ fun AppContent() {
                                     openTargetApp(context, true)
                                     isLoading = false
                                 }
-                            } else if (destination == AppDestinations.APPLY) {
+                            } else if (destination == AppDestinations.SAVE) {
+
                                 coroutineScope.launch {
                                     settingsStore.saveSettings(currentSettings)
+                                    showDialog = true        // <- APENAS ISTO!!!
                                 }
                             }
                         },
@@ -284,7 +258,7 @@ fun AppContent() {
                     onOptionSelected = { selectedOption ->
                         expandedOption = selectedOption
                         currentSettings = currentSettings.copy(detectionType = selectedOption)
-                        startProximityServiceIfNeeded(selectedOption)
+                        startServiceIfNeeded(context,selectedOption)
                     }
 
                 )
@@ -295,7 +269,8 @@ fun AppContent() {
                 AnimatedVisibility(expandedOption != null) {
                     ExpandedOptionContent(
                         expandedOption = expandedOption,
-                        onOverlayChange = { overlayVisible = it }
+                        onOverlayChange = { },
+                        context
                     )
                 }
             }
@@ -313,6 +288,13 @@ fun AppContent() {
                 AppLoading(size = 80.dp)
             }
         }
+    }
+
+    if (showDialog) {
+        AutoDismissDialog(
+            message = "Configurações gravadas!",
+            onDismiss = { showDialog = false }
+        )
     }
 }
 
@@ -337,15 +319,24 @@ fun DetectionTypeSection(
 @Composable
 fun ExpandedOptionContent(
     expandedOption: Option?,
-    onOverlayChange: (Boolean) -> Unit
+    onOverlayChange: (Boolean) -> Unit,
+    context: Context
 ) {
+    val (proximityName, proximityVendor, proximityMaxRange) = rememberProximitySensorInfo(context)
+
+
     Box(
         modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp, max = 380.dp).animateContentSize()
     ) {
         when (expandedOption) {
             Option.FacialDetection -> FaceListScreen(onAddFaceClick = { onOverlayChange(true) })
-            Option.ProximityDetection -> ProximitySensor(onAddFaceClick = { onOverlayChange(true) })
-            Option.CameraDetection -> CameraSensor(onAddFaceClick = { onOverlayChange(true) })
+            Option.ProximityDetection ->
+                if (proximityName != "prox_stk3311" &&
+                    proximityVendor != "sensortek"
+                ) {
+                    ProximitySensor()
+                }
+            Option.CameraDetection -> CameraSensor()
             else -> {}
         }
     }
@@ -353,124 +344,6 @@ fun ExpandedOptionContent(
 }
 
 
-
-
-@Composable
-fun LoginScreen(savedCode: String, onLoginSuccess: () -> Unit) {
-
-    var code by remember { mutableStateOf("") }
-    var error by remember { mutableStateOf<String?>(null) }
-    var isLoading by remember { mutableStateOf(false) }
-    var passwordVisible by remember { mutableStateOf(false) }
-
-    // ⚡ Trigger para o LaunchedEffect
-    var loginTriggered by remember { mutableStateOf(false) }
-
-    // ⛔ ESTE É O ÚNICO LUGAR ONDE PODE FICAR UM LaunchedEffect
-    LaunchedEffect(loginTriggered) {
-        if (loginTriggered) {
-            // Mostra loading suave por pelo menos 400ms
-            delay(400)
-            onLoginSuccess()
-        }
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-            .padding(horizontal = 24.dp),
-        contentAlignment = Alignment.Center
-    ) {
-
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-
-            Text("Mordomus Tavo", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-
-            Spacer(Modifier.height(24.dp))
-
-            Text(
-                "Insira o código de acesso",
-                color = colorResource(id = R.color.md_orange),
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-
-            Spacer(Modifier.height(20.dp))
-
-            OutlinedTextField(
-                value = code,
-                onValueChange = { if (it.all(Char::isDigit)) code = it },
-                label = { Text("Código", color = Color.LightGray) },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = colorResource(id = R.color.md_orange),
-                    cursorColor = colorResource(id = R.color.md_orange),
-                    focusedLabelColor = colorResource(id = R.color.md_orange),
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White
-                ),
-                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                trailingIcon = {
-                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                        Icon(
-                            imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                            contentDescription = null,
-                            tint = colorResource(id = R.color.md_orange)
-                        )
-                    }
-                }
-            )
-
-            Spacer(Modifier.height(30.dp))
-
-            Button(
-                onClick = {
-                    if (code == savedCode) {
-                        isLoading = true
-                        loginTriggered = true   // ⚡ Agora o LaunchedEffect é ativado
-                    } else {
-                        error = "Código incorreto. Tente novamente."
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = colorResource(id = R.color.md_orange))
-            ) {
-                Text("Entrar", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-            }
-
-            AnimatedVisibility(error != null) {
-                Text(
-                    text = error ?: "",
-                    color = Color.Red,
-                    fontSize = 14.sp,
-                    modifier = Modifier.padding(top = 16.dp)
-                )
-            }
-        }
-
-        AnimatedVisibility(isLoading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.6f))
-                    .zIndex(10f),
-                contentAlignment = Alignment.Center
-            ) {
-                AppLoading(size = 80.dp)
-            }
-        }
-    }
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

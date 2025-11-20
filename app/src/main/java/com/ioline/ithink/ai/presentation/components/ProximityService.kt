@@ -13,6 +13,8 @@ import android.hardware.SensorManager
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
+import com.ioline.ithink.ai.AppUtils
+import com.ioline.ithink.ai.presentation.screens.proximity_sensor.ProximitySensor
 
 class ProximityService : Service(), SensorEventListener {
 
@@ -80,11 +82,33 @@ class ProximityService : Service(), SensorEventListener {
     override fun onSensorChanged(event: SensorEvent?) {
         if (event?.sensor?.type == Sensor.TYPE_PROXIMITY) {
             val distance = event.values[0]
-            Log.d("ProximityService", "Sensor: $distance cm / MaxRange: ${proximitySensor?.maximumRange}")
+            val maxRange = proximitySensor?.maximumRange ?: 0f
+            val sensor_name = ProximityService.sensorName
+            val sensor_vendor = ProximityService.sensorVendor
 
-           val intent = Intent("PROXIMITY_SENSOR_UPDATE")
-           intent.putExtra("distance", distance)
-           sendBroadcast(intent)
+
+            val threshold = if (sensor_name != "prox_stk3311" &&
+                sensor_vendor != "sensortek"
+            ) {
+                maxRange /2
+            } else maxRange / 2  // metade do alcance é considerado "perto"
+
+            val isNear = distance < threshold
+
+            Log.d("ProximityService", "Distance: $distance / Near: $isNear / MaxRange: $maxRange")
+
+            val intent = Intent("PROXIMITY_SENSOR_UPDATE")
+            intent.putExtra("distance", distance)
+            sendBroadcast(intent)
+
+            if (isNear) {
+                if (sensor_name == "prox_stk3311" &&
+                    sensor_vendor == "sensortek"
+                ) {
+                    AppUtils.openTargetApp(this,true);
+                }
+
+            }
         }
     }
 

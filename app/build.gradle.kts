@@ -135,6 +135,7 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.datastore.core)
     implementation(libs.kotlinx.serialization.json)
+    implementation("androidx.work:work-runtime-ktx:2.8.1")
 }
 
 apply(plugin = "io.objectbox")

@@ -16,9 +16,7 @@ import com.ioline.ithink.ai.presentation.theme.FaceNetAndroidTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CameraSensor(
-    onAddFaceClick: () -> Unit,
-) {
+fun CameraSensor() {
     FaceNetAndroidTheme {
         Scaffold(
             containerColor = Color.Black,

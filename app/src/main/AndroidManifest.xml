@@ -53,7 +53,12 @@
         android:screenOrientation="landscape"
         tools:targetApi="31">
 
-
+        <service
+            android:name=".PeriodicAppLauncherService"
+            android:enabled="true"
+            android:exported="true"
+            android:foregroundServiceType="dataSync"
+            />
 
         <service
             android:name=".presentation.components.ProximityService"

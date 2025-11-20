@@ -65,7 +65,6 @@ fun getProximitySensorInfo(context: Context): Triple<String?, String?, Float?> {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProximitySensor(
-    onAddFaceClick: () -> Unit,
     viewModel: ProximitySensorViewModel = koinViewModel()
 ) {
     val context = LocalContext.current

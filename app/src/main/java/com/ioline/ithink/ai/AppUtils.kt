@@ -55,8 +55,6 @@ object AppUtils {
 
     }
 
-
-
     fun hasProximitySensor(context: Context): Boolean {
 
 
