@@ -49,6 +49,8 @@ import com.ioline.ithink.ai.TouchOverlay
 import com.ioline.ithink.ai.settingsdatastore.AppSettings
 import com.ioline.ithink.ai.settingsdatastore.SettingsDataStore
 import com.ioline.ithink.ai.presentation.components.AppLoading
+import com.ioline.ithink.ai.presentation.components.CameraService
+import com.ioline.ithink.ai.presentation.components.FaceDetectionService
 import com.ioline.ithink.ai.presentation.screens.camera_sensor.CameraSensor
 import com.ioline.ithink.ai.presentation.screens.face_list.FaceListScreen
 import com.ioline.ithink.ai.presentation.screens.proximity_sensor.ProximitySensor
@@ -123,8 +125,31 @@ fun startServiceIfNeeded(context:Context, option: Option) {
 
     if (option == Option.ProximityDetection)
     {
+        FaceDetectionService.stop(context)
+
+        context.stopService(
+            Intent(
+                context,
+                CameraService::class.java
+            )
+        )
+
         val intent = Intent(context, ProximityService::class.java)
         context.startForegroundService(intent)
+    }
+    else  if (option == Option.CameraDetection) {
+        FaceDetectionService.stop(context)
+
+        context.stopService(
+            Intent(
+                context,
+                ProximityService::class.java
+            )
+        )
+
+        val intent =
+            Intent(context, CameraService::class.java)
+        context.startForegroundService( intent)
     }
 }
 

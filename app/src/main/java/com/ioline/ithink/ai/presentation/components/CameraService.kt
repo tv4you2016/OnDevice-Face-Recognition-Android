@@ -20,28 +20,62 @@ import kotlin.math.abs
 import android.R
 import androidx.annotation.OptIn
 import androidx.camera.core.ExperimentalGetImage
-import com.ioline.ithink.ai.AppUtils.openTargetApp
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.IntentFilter
+import com.ioline.ithink.ai.settingsdatastore.SettingsDataStore
+import com.ioline.ithink.ai.settingsdatastore.AppSettings
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
+
 
 class CameraService : LifecycleService() {
-    private val TAG = "MotionDetectService"
-    private val cameraExecutor = Executors.newSingleThreadExecutor()
-    private var lastFrameGray: ByteArray? = null
-    private val width = 160  // downsized analysis resolution
-    private val height = 120
 
+    private val TAG = "CameraService"
+    private val cameraExecutor = Executors.newSingleThreadExecutor()
+    private val width = 160
+    private val height = 120
+    private var lastFrameGray: ByteArray? = null
     private var wakeLock: PowerManager.WakeLock? = null
 
+    private var sensorReference: Float = 1000f // valor inicial provisório
 
-    private var motionCount = 0
-    private val requiredMotionFrames = 3
-    private val blockMotionThreshold = 6  // nº mínimo de blocos que devem mudar
+    private val sensorReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            sensorReference = intent?.getFloatExtra("sensorReference", 1000f) ?: 1000f
+        }
+    }
 
 
     override fun onCreate() {
         super.onCreate()
-        startForegroundService();
+
+        // Inicializa sensorReference a partir do DataStore
+        initializeSensorReference()
+
+        registerReceiver(
+            sensorReceiver,
+            IntentFilter("UPDATE_SENSOR_REFERENCE"),
+            Context.RECEIVER_EXPORTED
+        )
+
+        startForegroundService()
         startCameraAnalysis()
     }
+
+    private fun initializeSensorReference() {
+        // Cria instância do SettingsDataStore
+        val settingsStore = SettingsDataStore(this)
+
+        // Lê o valor salvo de forma assíncrona
+        lifecycleScope.launch {
+            val currentSettings = settingsStore.settingsFlow.first() // pega o último valor
+            sensorReference = currentSettings.camera.sensitivity * 10000f
+            Log.d("CameraService", "SensorReference inicializado: $sensorReference")
+        }
+    }
+
 
     private fun startForegroundService() {
         val channelId = "AI_CAMERA_CHANNEL"
@@ -66,7 +100,6 @@ class CameraService : LifecycleService() {
     }
 
     override fun onBind(intent: Intent) = super.onBind(intent)
-
 
     private fun startCameraAnalysis() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
@@ -98,7 +131,6 @@ class CameraService : LifecycleService() {
     @OptIn(ExperimentalGetImage::class)
     private fun handleImageProxy(imageProxy: ImageProxy) {
         val image = imageProxy.image ?: return
-
         val gray = yuvToGray(image, width, height)
         val smoothGray = smoothGrayImage(gray, width, height)
 
@@ -108,72 +140,33 @@ class CameraService : LifecycleService() {
         }
 
         val blockDiff = computeBlockDiff(lastFrameGray!!, smoothGray, width, height)
+        val objectSize = computeObjectSize(lastFrameGray!!, smoothGray)
+
         lastFrameGray = smoothGray
 
+        val proximityLevel = if (objectSize > sensorReference) "Próximo" else "Distante"
 
-        if (blockDiff >= 5) {
-            Log.d(TAG, "🔴 Objeto MUITO PERTO da câmera  blockDiff:$blockDiff ")
 
-            openTargetApp(applicationContext,true)
+        Log.d(TAG, "sensorReference: $sensorReference blockDiff: $blockDiff, objectSize: $objectSize Status → $proximityLevel")
 
-        } else if (blockDiff >= 1) {
-            Log.d(TAG, "🟢 Objeto distante ou pequeno movimento  blockDiff:$blockDiff")
-        }
+        // Envia broadcast para Compose ou outro listener
+        val intent = Intent("CAMERA_SENSOR_UPDATE")
 
-        /*
-        if (blockDiff >= blockMotionThreshold) {
-            motionCount++
-            Log.d(TAG, "Possível movimento detectado (blocos diferentes = $blockDiff), motionCount=$motionCount")
-            if (motionCount >= requiredMotionFrames) {
-                Log.d(TAG, "Movimento confirmado!")
+       // intent.putExtra("blockDiff", blockDiff)
+       // intent.putExtra("objectSize", objectSize)
 
-                motionCount = 0
-                //onMotionDetected()
-                val intent = Intent("com.ioline.OPEN_TARGET_APP")
-                sendBroadcast(intent)
-            }
-        } else {
-            motionCount = 0
-        }
-
-         */
+        intent.putExtra("proximityLevel", proximityLevel)
+        sendBroadcast(intent)
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        cameraExecutor.shutdown()
-        wakeLock?.let { if (it.isHeld) it.release() }
-    }
-
-    // --- helpers para conversão YUV420 -> grayscale downsized ---
-    private fun yuvToGray(image: Image, dstW: Int, dstH: Int): ByteArray {
-        val yPlane = image.planes[0]
-        val yBuf = yPlane.buffer
-        val srcW = image.width
-        val srcH = image.height
-        // simples downscale por amostragem
-        val out = ByteArray(dstW * dstH)
-        val stepX = srcW / dstW
-        val stepY = srcH / dstH
-        var idx = 0
-        for (j in 0 until dstH) {
-            val sy = j * stepY
-            for (i in 0 until dstW) {
-                val sx = i * stepX
-                val pos = sy * srcW + sx
-                val yVal = yBuf.get(pos).toInt() and 0xFF
-                out[idx++] = yVal.toByte()
-            }
-        }
-        return out
-    }
-
-    private fun computeFrameDiff(a: ByteArray, b: ByteArray): Int {
-        var s = 0
+    private fun computeObjectSize(a: ByteArray, b: ByteArray): Int {
+        var changedPixels = 0
         for (i in a.indices) {
-            s += abs((a[i].toInt() and 0xFF) - (b[i].toInt() and 0xFF))
+            if (abs((a[i].toInt() and 0xFF) - (b[i].toInt() and 0xFF)) > 20) {
+                changedPixels++
+            }
         }
-        return s
+        return changedPixels
     }
 
     private fun smoothGrayImage(input: ByteArray, w: Int, h: Int): ByteArray {
@@ -194,10 +187,30 @@ class CameraService : LifecycleService() {
         return output
     }
 
+    private fun yuvToGray(image: Image, dstW: Int, dstH: Int): ByteArray {
+        val yPlane = image.planes[0]
+        val yBuf = yPlane.buffer
+        val srcW = image.width
+        val srcH = image.height
+        val out = ByteArray(dstW * dstH)
+        val stepX = srcW / dstW
+        val stepY = srcH / dstH
+        var idx = 0
+        for (j in 0 until dstH) {
+            val sy = j * stepY
+            for (i in 0 until dstW) {
+                val sx = i * stepX
+                val pos = sy * srcW + sx
+                val yVal = yBuf.get(pos).toInt() and 0xFF
+                out[idx++] = yVal.toByte()
+            }
+        }
+        return out
+    }
+
     private fun computeBlockDiff(a: ByteArray, b: ByteArray, w: Int, h: Int): Int {
         val blockSize = 8
         var blockChanges = 0
-
         for (y in 0 until h step blockSize) {
             for (x in 0 until w step blockSize) {
                 var sum = 0
@@ -211,13 +224,16 @@ class CameraService : LifecycleService() {
                         }
                     }
                 }
-                if (sum > 1000) blockChanges++ // só conta blocos com mudança significativa
+                if (sum > 1000) blockChanges++
             }
         }
-
         return blockChanges
     }
 
-
-
+    override fun onDestroy() {
+        super.onDestroy()
+        unregisterReceiver(sensorReceiver)
+        cameraExecutor.shutdown()
+        wakeLock?.let { if (it.isHeld) it.release() }
+    }
 }

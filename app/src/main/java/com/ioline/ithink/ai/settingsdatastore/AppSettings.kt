@@ -27,6 +27,6 @@ data class ProximitySettings(
 
 @Serializable
 data class CameraSettings(
-    val detectionThreshold: Float = 0.5f,
+    val sensitivity: Float = 0.5f,
     val stabilization: Boolean = true
 )

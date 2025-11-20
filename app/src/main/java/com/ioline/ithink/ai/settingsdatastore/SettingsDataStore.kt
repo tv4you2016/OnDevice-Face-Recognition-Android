@@ -1,6 +1,7 @@
 package com.ioline.ithink.ai.settingsdatastore
 
 import android.content.Context
+import android.util.Log
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.datastore.preferences.core.edit
@@ -10,10 +11,12 @@ import com.ioline.ithink.ai.AutoDismissDialog
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.json.Json
+import org.koin.core.annotation.Single
 
 val Context.settingsDataStore by preferencesDataStore("full_settings")
 
 
+@Single
 class SettingsDataStore(private val context: Context) {
 
     private val SETTINGS_KEY = stringPreferencesKey("settings_json")
@@ -29,6 +32,7 @@ class SettingsDataStore(private val context: Context) {
     suspend fun saveSettings(settings: AppSettings) {
         val json = jsonFormatter.encodeToString(settings)
 
+        Log.d("SettingsDataStore", "Saving settings: $SETTINGS_KEY =  $json")
         context.settingsDataStore.edit { prefs ->
             prefs[SETTINGS_KEY] = json
         }
