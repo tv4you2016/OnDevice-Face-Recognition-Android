@@ -25,7 +25,7 @@ class AddFaceScreenViewModel(
     val isProcessingImages: MutableState<Boolean> = mutableStateOf(false)
     val numImagesProcessed: MutableState<Int> = mutableIntStateOf(0)
 
-    fun addImages() {
+    fun addImages_old() {
         isProcessingImages.value = true
         CoroutineScope(Dispatchers.Default).launch {
             val id =
@@ -44,6 +44,32 @@ class AddFaceScreenViewModel(
                         setProgressDialogText("Processed ${numImagesProcessed.value} image(s)")
                     }
             }
+            isProcessingImages.value = false
+        }
+    }
+
+    fun addImages() {
+        isProcessingImages.value = true
+        CoroutineScope(Dispatchers.Default).launch {
+            val id =
+                personUseCase.addPerson(
+                    personNameState.value,
+                    selectedImageURIs.value.size.toLong(),
+                )
+
+            for (uri in selectedImageURIs.value) {
+                val result = runCatching { imageVectorUseCase.addImage(id, personNameState.value, uri) }
+                result.onFailure {
+                    val errorMessage = (it as AppException).errorCode.message
+                    setProgressDialogText(errorMessage)
+                    break // ⚠️ Sai do loop ao primeiro erro
+                }
+                result.onSuccess {
+                    numImagesProcessed.value += 1
+                    setProgressDialogText("Processed ${numImagesProcessed.value} image(s)")
+                }
+            }
+
             isProcessingImages.value = false
         }
     }

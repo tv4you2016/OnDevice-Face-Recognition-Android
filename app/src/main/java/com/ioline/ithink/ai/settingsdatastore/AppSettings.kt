@@ -8,7 +8,13 @@ data class AppSettings(
     val detectionType: Option = Option.None,
     val facial: FacialSettings = FacialSettings(),
     val proximity: ProximitySettings = ProximitySettings(),
-    val camera: CameraSettings = CameraSettings()
+    val camera: CameraSettings = CameraSettings(),
+    val OpeniThink : OpeniThinkSettings = OpeniThinkSettings()
+)
+
+@Serializable
+data class OpeniThinkSettings(
+    val openApk: Boolean = false,
 )
 
 @Serializable

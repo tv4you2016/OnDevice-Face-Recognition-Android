@@ -3,5 +3,8 @@
     <string name="no_faces">No User Faces</string>
     <string name="add_faces">Add User</string>
     <string name="add_facesOK">Added</string>
+    <string name="próximo">Próximo</string>
+    <string name="distante">Distante</string>
+
 
 </resources>

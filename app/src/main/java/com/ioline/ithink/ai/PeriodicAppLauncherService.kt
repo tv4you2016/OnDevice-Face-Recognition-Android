@@ -66,7 +66,9 @@ class PeriodicAppLauncherService : Service() {
 
                 // Dispara o app alvo
                 Log.d("PeriodicAppLauncher", "🔔 Abrindo app alvo")
-                AppUtils.openTargetApp(applicationContext, false)
+
+                AppUtils.openTargetAppSafe(applicationContext, "app.ioline.ithink")
+
             }
         }
     }

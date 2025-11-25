@@ -66,7 +66,7 @@ class ProximityService : Service(), SensorEventListener {
         val notification: Notification =
             Notification.Builder(this, channelId)
                 .setContentTitle("AI Camera Service")
-                .setContentText("Processando vídeo da câmera...")
+                .setContentText("ProximityService...")
                 .setSmallIcon(R.drawable.ic_menu_camera)
                 .build()
 
@@ -99,16 +99,19 @@ class ProximityService : Service(), SensorEventListener {
 
             val intent = Intent("PROXIMITY_SENSOR_UPDATE")
             intent.putExtra("distance", distance)
+            intent.putExtra("Near", isNear)
             sendBroadcast(intent)
-
+/*
             if (isNear) {
                 if (sensor_name == "prox_stk3311" &&
                     sensor_vendor == "sensortek"
                 ) {
-                    AppUtils.openTargetApp(this,true);
+
                 }
 
             }
+
+ */
         }
     }
 

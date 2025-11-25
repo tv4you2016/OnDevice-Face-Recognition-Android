@@ -1,259 +1,447 @@
 package com.ioline.ithink.ai.layout
 
 
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.hardware.Sensor
-import android.hardware.SensorManager
+import android.content.IntentFilter
 import android.util.Log
 import androidx.camera.core.ExperimentalGetImage
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.togetherWith
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.FaceRetouchingNatural
-import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.zIndex
-import androidx.core.content.ContextCompat.startForegroundService
-import com.ioline.ithink.ai.presentation.components.ProximityService
-import com.ioline.ithink.ai.AppUtils.openTargetApp
-import com.ioline.ithink.ai.AutoDismissDialog
-import com.ioline.ithink.ai.PeriodicAppLauncherService
+
+
 import com.ioline.ithink.ai.R
-import com.ioline.ithink.ai.TouchOverlay
-import com.ioline.ithink.ai.settingsdatastore.AppSettings
-import com.ioline.ithink.ai.settingsdatastore.SettingsDataStore
 import com.ioline.ithink.ai.presentation.components.AppLoading
-import com.ioline.ithink.ai.presentation.components.CameraService
-import com.ioline.ithink.ai.presentation.components.FaceDetectionService
+import com.ioline.ithink.ai.presentation.screens.add_face.AddFaceScreen
 import com.ioline.ithink.ai.presentation.screens.camera_sensor.CameraSensor
 import com.ioline.ithink.ai.presentation.screens.face_list.FaceListScreen
-import com.ioline.ithink.ai.presentation.screens.proximity_sensor.ProximitySensor
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.serialization.Serializable
 
 
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.core.content.ContextCompat
+import androidx.core.content.ContextCompat.registerReceiver
+import com.ioline.ithink.ai.AppUtils
+import com.ioline.ithink.ai.AppUtils.openTargetAppSafe
+import com.ioline.ithink.ai.WakeLock
+
+
+// IMPORTS DO DATASTORE
+import com.ioline.ithink.ai.settingsdatastore.SettingsDataStore
+import com.ioline.ithink.ai.settingsdatastore.AppSettings
+
+// IMPORTS DOS SERVIÇOS
+import com.ioline.ithink.ai.presentation.components.ProximityService
+import com.ioline.ithink.ai.presentation.components.CameraService
+import com.ioline.ithink.ai.presentation.components.FaceDetectionService
+import kotlinx.coroutines.flow.first
+
+
+// APP UTILS
 // Definindo as opções disponíveis
-@Serializable
 enum class Option {
+    //ProximityDetection,
     FacialDetection,
-    ProximityDetection,
     CameraDetection,
     None
 }
 
 
-enum class AppDestinations(
-    val label: String,
-    val icon: Int,
-) {
-    HOME("Home", R.drawable.ic_mordomus_ithink),
-    SAVE("Save",R.drawable.ic_save),
-}
 
 // Lista de opções de detecção
 val settingsOptions = listOf(
-    Option.ProximityDetection,
+    //Option.ProximityDetection,
     Option.FacialDetection,
     Option.CameraDetection,
     Option.None
 )
 
 
-@Composable
-fun MainLayout() {
+@androidx.annotation.OptIn(ExperimentalGetImage::class)
+fun startServiceIfNeeded(context: Context, option: Option)
+{
 
-    var appReady by remember { mutableStateOf(false) }
+    when (option) {
+/*
+        Option.ProximityDetection -> {
+            FaceDetectionService.stop(context)
+            context.stopService(Intent(context, CameraService::class.java))
 
-    AnimatedContent(
-        targetState = appReady,
-        transitionSpec = {
-            fadeIn(tween(450)) + scaleIn(initialScale = 0.9f) togetherWith
-                    fadeOut(tween(300)) + scaleOut(targetScale = 0.9f)
+            val intent = Intent(context, ProximityService::class.java)
+            context.startForegroundService(intent)
         }
-    ) { ready ->
-        if (!ready) {
-            LoadingScreen()
-            // Preload corre apenas quando authenticated = true e ready = false
-            LaunchedEffect(Unit) {
-                withFrameNanos { }
-                delay(250)  // <-- 1 frame extra para Compose respirar
-                appReady = true
+*/
+        Option.CameraDetection -> {
+            FaceDetectionService.stop(context)
+            context.stopService(Intent(context, ProximityService::class.java))
+
+            val intent = Intent(context, CameraService::class.java)
+            context.startForegroundService(intent)
+        }
+
+        Option.FacialDetection -> {
+            context.stopService(Intent(context, ProximityService::class.java))
+            context.stopService(Intent(context, CameraService::class.java))
+
+            val intent = Intent(context, FaceDetectionService::class.java)
+            context.startForegroundService(intent)
+        }
+
+        Option.None -> {
+            FaceDetectionService.stop(context)
+            context.stopService(Intent(context, CameraService::class.java))
+            context.stopService(Intent(context, ProximityService::class.java))
+
+            AppUtils.stopLoading(context, "Option.None")
+            //AppUtils.startLoading(context, "Option.None")
+        }
+    }
+}
+
+
+
+
+@Composable
+fun SettingItem(
+    title: String,
+    description: String?,
+    enabled: Boolean,
+    onToggleChange: ((Boolean) -> Unit)?,
+    option: Option,
+    toggleVisible: Boolean,
+    toggleEnabled: Boolean = true,
+    borderWidth: Dp = 4.dp,
+    cornerRadius: Dp = 12.dp,
+    shadowElevation: Dp = 4.dp,
+    iconImage: ImageVector,
+    onAddFaceClick: () -> Unit,
+    expandedOption: Option?,
+    onExpandChange: (Option?) -> Unit
+) {
+
+
+    val isExpandable = option == Option.FacialDetection || option == Option.CameraDetection
+    val isExpanded = isExpandable && expandedOption == option
+
+    val borderColor by animateColorAsState(
+        targetValue = if (isExpanded) colorResource(id = R.color.md_orange) else Color.Gray,
+        label = "borderColor"
+    )
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+            .shadow(elevation = shadowElevation, shape = RoundedCornerShape(cornerRadius))
+            .background(Color.Black, RoundedCornerShape(cornerRadius))
+            .border(borderWidth, borderColor, RoundedCornerShape(cornerRadius))
+            .animateContentSize()
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                Icon(
+                    imageVector = iconImage,
+                    contentDescription = "$title icon",
+                    tint = Color.White,
+                    modifier = Modifier.padding(end = 16.dp)
+                )
+                Text(
+                    text = title,
+                    fontSize = 16.sp,
+                    color = Color.White,
+                    fontWeight = FontWeight.Medium
+                )
             }
-        } else {
-            AppContent()
+
+            if (toggleVisible) {
+                DetectionSwitch(
+                    checked = enabled,
+                    onCheckedChange = { isChecked ->
+                        onToggleChange?.invoke(isChecked)
+
+                        if (isExpandable && isChecked) {
+                            onExpandChange(option)
+/*
+                            // 🔥 Mostra loading global
+                            context.sendBroadcast(
+                                Intent("GLOBAL_LOADING_UPDATE").apply { putExtra("loading", true) }
+                            )
+*/
+                        } else if (!isChecked) {
+                            onExpandChange(null)
+                        }
+
+                    },
+                    enabled = toggleEnabled
+                )
+
+            }
+        }
+
+        AnimatedVisibility(visible = isExpanded) {
+            SettingItemContent(
+                option = option,
+                description = description,
+                onAddFaceClick = onAddFaceClick
+            )
         }
     }
 }
 
-// Função auxiliar para iniciar os serviços
-fun startServiceIfNeeded(context:Context, option: Option) {
-    // Mostra overlay
-    val overlay = TouchOverlay(context) {
-        Log.d("MainActivity", "Overlay callback acionado")
-    }
-    overlay.show()
 
-    val intent = Intent(context, PeriodicAppLauncherService::class.java)
-    startForegroundService(context,intent)
 
-    if (option == Option.ProximityDetection)
-    {
-        FaceDetectionService.stop(context)
-
-        context.stopService(
-            Intent(
-                context,
-                CameraService::class.java
-            )
-        )
-
-        val intent = Intent(context, ProximityService::class.java)
-        context.startForegroundService(intent)
-    }
-    else  if (option == Option.CameraDetection) {
-        FaceDetectionService.stop(context)
-
-        context.stopService(
-            Intent(
-                context,
-                ProximityService::class.java
-            )
-        )
-
-        val intent =
-            Intent(context, CameraService::class.java)
-        context.startForegroundService( intent)
+@Composable
+fun FullscreenOverlay( onDismiss: () -> Unit) {
+    AnimatedVisibility(
+        visible = true,
+        enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
+        exit = fadeOut() + slideOutVertically(targetOffsetY = { it })
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.4f))
+        ) {
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .fillMaxSize(),
+                color = Color.White
+            ) {
+                AddFaceScreen(onNavigateBack = {
+                    onDismiss() // Chama o onDismiss quando a sobreposição for fechada
+                })
+            }
+        }
     }
 }
 
+
 @Composable
-fun LoadingScreen() {
+fun SectionTitle(title: String) {
+    Text(
+        text = title,
+        color = Color(0xFFff931e), // azul parecido
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 16.sp,
+        modifier = Modifier.padding(bottom = 8.dp)
+    )
+}
+
+
+@Composable
+private fun SettingItemContent(
+    option: Option,
+    description: String?,
+    onAddFaceClick: () -> Unit
+) {
+
+    AppUtils.startLoading(LocalContext.current , "SettingItemContent -> $option\"")
+
+
     Box(
         modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black),
-        contentAlignment = Alignment.Center
+            .fillMaxWidth()
+            .animateContentSize()
+            .padding(top = 12.dp, bottom = 12.dp)
+            .heightIn(min = 120.dp, max = 260.dp)
     ) {
-        AppLoading(size = 80.dp)
+
+
+        when (option) {
+
+
+            Option.CameraDetection -> CameraSensor()
+
+
+
+            Option.FacialDetection -> FaceListScreen(
+                onAddFaceClick = onAddFaceClick,
+            )
+
+            Option.None -> {
+
+            }
+        }
     }
+
 }
 
 
-fun getProximitySensorInfo(context: Context): Triple<String?, String?, Float?> {
-    val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
-    val proximitySensor = sensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY)
-
-    return if (proximitySensor != null) {
-        Log.d("ProximityInfo", "Nome do sensor: ${proximitySensor.name}")
-        Log.d("ProximityInfo", "Fabricante: ${proximitySensor.vendor}")
-        Log.d("ProximityInfo", "Alcance máximo: ${proximitySensor.maximumRange}")
-
-        Triple(
-            proximitySensor.name,
-            proximitySensor.vendor,
-            proximitySensor.maximumRange
-        )
-    } else {
-        Triple(null, null, null)
-    }
-}
 
 
 @Composable
-fun rememberProximitySensorInfo(context: Context): Triple<String?, String?, Float?> {
-    return remember {
-        getProximitySensorInfo(context)
-    }
+private fun DetectionSwitch(
+    checked: Boolean,
+    onCheckedChange: ((Boolean) -> Unit)?,
+    enabled: Boolean
+) {
+    Switch(
+        checked = checked,
+        onCheckedChange = { if (enabled && onCheckedChange != null) onCheckedChange(it) },
+        enabled = enabled,
+        colors = SwitchDefaults.colors(
+            checkedThumbColor = Color.White,
+            checkedTrackColor = Color(0xFFff931e),
+            uncheckedThumbColor = Color.White,
+            uncheckedTrackColor = Color(0xFF808080),
+
+            // 👇 Novos parâmetros corretos:
+            disabledCheckedThumbColor = Color.Gray,
+            disabledCheckedTrackColor = Color.DarkGray,
+            disabledUncheckedThumbColor = Color.Gray,
+            disabledUncheckedTrackColor = Color.DarkGray
+        )
+    )
 }
+
+
+
+@androidx.annotation.OptIn(ExperimentalGetImage::class)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AppContent() {
-    var showDialog by remember { mutableStateOf(false) }
-
+fun MainLayout() {
     val context = LocalContext.current
 
-    // Dados de configuração
+    // === DataStore ===
     val settingsStore = remember { SettingsDataStore(context) }
     val settings by settingsStore.settingsFlow.collectAsState(initial = AppSettings())
+    var currentSettings by remember { mutableStateOf(settings) }
+    LaunchedEffect(settings) { currentSettings = settings }
 
-    var currentSettings by remember { mutableStateOf(AppSettings()) }
-
-    LaunchedEffect(settings) {
-        currentSettings = settings
-    }
-
-    // Estados de UI
-    var isLoading by remember { mutableStateOf(false) }
-
+    // === UI States ===
+    var overlayVisible by remember { mutableStateOf(false) }
     var expandedOption by remember { mutableStateOf<Option?>(currentSettings.detectionType) }
-    LaunchedEffect(currentSettings) {
-        expandedOption = currentSettings.detectionType
-    }
-    startServiceIfNeeded(context,currentSettings.detectionType)
-
-
     val coroutineScope = rememberCoroutineScope()
     val listState = rememberLazyListState()
 
 
 
-    Scaffold(
-        containerColor = Color.Black,
-        topBar = {
-            TopAppBar(
-                title = { Text("Mordomus Tavo", color = Color.White, fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Black)
-            )
-        },
-        bottomBar = {
-            NavigationBar(modifier = Modifier.height(75.dp),containerColor = Color(0xFF000000)
-            ) {
-                AppDestinations.entries.forEach { destination ->
-                    NavigationBarItem(
-                        icon = { Icon(painterResource(id = destination.icon), tint = Color.Unspecified,contentDescription = destination.label, modifier = Modifier.size(44.dp)) },
-                        selected = destination == AppDestinations.HOME,
-                        onClick = {
-                            if (destination == AppDestinations.HOME) {
-                                isLoading = true
-                                coroutineScope.launch {
-                                    delay(800)
-                                    openTargetApp(context, true)
-                                    isLoading = false
-                                }
-                            } else if (destination == AppDestinations.SAVE) {
+    //Log.d("Loading","MainLayout")
+    //AppUtils.startLoading(context)
 
-                                coroutineScope.launch {
-                                    settingsStore.saveSettings(currentSettings)
-                                    showDialog = true        // <- APENAS ISTO!!!
-                                }
+    // 🔥 Ativa loading global imediatamente e inicia serviço
+    LaunchedEffect(currentSettings.detectionType) {
+        startServiceIfNeeded(context, currentSettings.detectionType)
+        expandedOption = currentSettings.detectionType
+    }
+
+/*
+    // Sempre que o detectionType mudar, garante que o serviço esteja ativo
+    DisposableEffect(currentSettings.detectionType) {
+        startServiceIfNeeded(context, currentSettings.detectionType)
+        expandedOption = currentSettings.detectionType
+        onDispose {
+            // opcional: parar serviços ao sair do layout se desejar
+        }
+    }
+
+    // Garante que o serviço facial reinicie após fechar o overlay
+    LaunchedEffect(overlayVisible) {
+        if (!overlayVisible) {
+            startServiceIfNeeded(context, currentSettings.detectionType)
+            expandedOption = currentSettings.detectionType
+        }
+    }
+*/
+   // globalLoading = False;
+    // --- Se loading global estiver ativo, mostra só o loading ---
+
+
+        // --- Layout principal ---
+        Scaffold(
+            containerColor = Color.Black,
+            topBar = {
+                TopAppBar(
+                    title = { Text("Mordomus Tavo", color = Color.White, fontWeight = FontWeight.Bold) },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Black),
+                    actions = {
+                        if (overlayVisible) {
+                            IconButton(onClick = { overlayVisible = false }) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Default.ArrowBack,
+                                    contentDescription = "Navigate Back",
+                                    tint = Color.White
+                                )
                             }
+                        }
+                    }
+                )
+            },
+            bottomBar = {
+                NavigationBar(modifier = Modifier.height(75.dp), containerColor = Color.Black) {
+                    NavigationBarItem(
+                        icon = {
+                            Icon(
+                                painterResource(id = R.drawable.ic_mordomus_ithink),
+                                contentDescription = "Home",
+                                tint = Color.Unspecified,
+                                modifier = Modifier.size(44.dp)
+                            )
+                        },
+                        selected = true,
+                        onClick = {
+                            coroutineScope.launch {
+                                // Atualiza o AppSettings
+                                val current = settingsStore.settingsFlow.first()
+                                val updated = current.copy(
+                                    OpeniThink = current.OpeniThink.copy(openApk = true)
+                                )
+                                settingsStore.saveSettings(updated)
+
+                            }
+/*
+                            AppUtils.startLoading(context, "openTargetApp")
+                            try {
+                                WakeLock().wakeUpScreen(context)
+                                WakeLock().unlockScreen(context)
+
+                                openTargetAppSafe(context, "app.ioline.ithink")
+                            } finally {
+                                AppUtils.stopLoading(context, "openTargetApp")
+                            }
+
+ */
                         },
                         colors = NavigationBarItemDefaults.colors(
                             indicatorColor = Color.Transparent,
@@ -263,198 +451,71 @@ fun AppContent() {
                     )
                 }
             }
-        }
-    ) { paddingValues ->
-
-        LazyColumn(
-            state = listState,
-            modifier = Modifier
+        ) { paddingValues ->
+            Box(modifier = Modifier
                 .padding(paddingValues)
-                .padding(horizontal = 10.dp)
-                .fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 80.dp)
-        ) {
-
-            // Seção de seleção de tipo de detecção
-            item {
-                DetectionTypeSection(
-                    settingsOptions = settingsOptions,
-                    expandedOption = expandedOption,
-                    onOptionSelected = { selectedOption ->
-                        expandedOption = selectedOption
-                        currentSettings = currentSettings.copy(detectionType = selectedOption)
-                        startServiceIfNeeded(context,selectedOption)
-                    }
-
-                )
-            }
-
-            // Conteúdo dinâmico do item expandido
-            item {
-                AnimatedVisibility(expandedOption != null) {
-                    ExpandedOptionContent(
-                        expandedOption = expandedOption,
-                        onOverlayChange = { },
-                        context
-                    )
-                }
-            }
-        }
-
-        // Overlay de loading
-        AnimatedVisibility(isLoading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.4f))
-                    .zIndex(10f),
-                contentAlignment = Alignment.Center
-            ) {
-                AppLoading(size = 80.dp)
-            }
-        }
-    }
-
-    if (showDialog) {
-        AutoDismissDialog(
-            message = "Configurações gravadas!",
-            onDismiss = { showDialog = false }
-        )
-    }
-}
-
-
-@Composable
-fun DetectionTypeSection(
-    settingsOptions: List<Option>,
-    expandedOption: Option?,
-    onOptionSelected: (Option) -> Unit
-) {
-    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
-        Text("Detection Type:", color = Color(0xFFff931e), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-        Spacer(modifier = Modifier.height(8.dp))
-        DetectionTypeComboBox(
-            options = settingsOptions,
-            selected = expandedOption,
-            onSelect = onOptionSelected
-        )
-    }
-}
-
-@Composable
-fun ExpandedOptionContent(
-    expandedOption: Option?,
-    onOverlayChange: (Boolean) -> Unit,
-    context: Context
-) {
-    val (proximityName, proximityVendor, proximityMaxRange) = rememberProximitySensorInfo(context)
-
-
-    Box(
-        modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp, max = 380.dp).animateContentSize()
-    ) {
-        when (expandedOption) {
-            Option.FacialDetection -> FaceListScreen(onAddFaceClick = { onOverlayChange(true) })
-            Option.ProximityDetection ->
-                if (proximityName != "prox_stk3311" &&
-                    proximityVendor != "sensortek"
+                .fillMaxSize()) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier
+                        .padding(horizontal = 10.dp)
+                        .fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 80.dp)
                 ) {
-                    ProximitySensor()
-                }
-            Option.CameraDetection -> CameraSensor()
-            else -> {}
-        }
-    }
+                    item { SectionTitle("Detection Type:") }
 
-}
+                    itemsIndexed(settingsOptions) { index, option ->
+                        val isEnabled = currentSettings.detectionType == option
+                        val title = when (option) {
 
-
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun DetectionTypeComboBox(
-    options: List<Option>,
-    selected: Option?,
-    onSelect: (Option) -> Unit,
-    onExpandChange: ((Option?, Boolean) -> Unit)? = null // <- callback com item e expand
-
-) {
-    var expanded by remember { mutableStateOf(false) }
-
-    val optionIcons = mapOf(
-        Option.ProximityDetection to Icons.Default.Sensors,
-        Option.FacialDetection to Icons.Default.FaceRetouchingNatural,
-        Option.CameraDetection to Icons.Default.Face,
-        Option.None to Icons.Default.Close
-    )
-
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { newExpanded ->
-            expanded = newExpanded
-            onExpandChange?.invoke(selected, newExpanded) // <-- envia item atual + estado
-        }
-    ) {
-        val defaultOption = options.first { it.name == "None" }
-
-        OutlinedTextField(
-            value = (selected ?: defaultOption).name, // pega o None se nada selecionado
-            onValueChange = {},
-            readOnly = true,
-            leadingIcon = {
-                val current = selected ?: defaultOption
-                Icon(
-                    imageVector = optionIcons[current] ?: Icons.Default.Close,
-                    contentDescription = null,
-                    tint = Color.White
-                )
-            },
-            trailingIcon = {
-                Icon(
-                    imageVector = Icons.Default.ArrowDropDown,
-                    contentDescription = null,
-                    tint = Color.White // aqui força a cor branca
-                )
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .menuAnchor(),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color(0xFFff931e),
-                focusedLabelColor = Color(0xFFff931e),
-                unfocusedBorderColor = Color(0xFFff931e),
-                unfocusedLabelColor = Color(0xFFff931e),
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White
-            )
-        )
-
-
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            modifier = Modifier.background(Color.Black)
-        ) {
-            options.forEach { opt ->   // <- usa 'opt' aqui
-                DropdownMenuItem(
-                    text = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = optionIcons[opt] ?: Icons.Default.Close,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(Modifier.width(12.dp))
-                            Text(opt.name, color = Color.White)
+                            Option.FacialDetection -> "Facial Detect"
+                            Option.CameraDetection -> "Camera movement"
+                            Option.None -> "None (Power Button)"
                         }
-                    },
-                    onClick = {
-                        expanded = false
-                        onSelect(opt)   // <- seleciona
+                        val icon = when (option) {
+
+                            Option.FacialDetection -> Icons.Default.FaceRetouchingNatural
+                            Option.CameraDetection -> Icons.Default.Face
+                            Option.None -> Icons.Default.Close
+                        }
+
+                        SettingItem(
+                            title = title,
+                            description = null,
+                            enabled = isEnabled,
+                            onToggleChange = { checked ->
+                                if (checked) {
+                                    val newSettings = currentSettings.copy(detectionType = option)
+                                    currentSettings = newSettings
+                                    coroutineScope.launch { settingsStore.saveSettings(newSettings) }
+                                    // Somente expandir se for expandível
+                                    if (option == Option.None) {
+                                        expandedOption = null
+
+                                    } else {
+                                        expandedOption = option
+                                    }
+                                }
+                            },
+                            toggleVisible = true,
+                            toggleEnabled = true,
+                            option = option,
+                            iconImage = icon,
+                            expandedOption = expandedOption,
+                            onAddFaceClick = { if (option == Option.FacialDetection) overlayVisible = true },
+                            onExpandChange = { /* manual expand opcional */ }
+                        )
+
+                        if (expandedOption == option) {
+                            LaunchedEffect(option) { listState.animateScrollToItem(index) }
+                        }
                     }
-                )
+                }
+
+                if (overlayVisible) FullscreenOverlay(onDismiss = { overlayVisible = false })
             }
         }
-    }
+
+
+
 }

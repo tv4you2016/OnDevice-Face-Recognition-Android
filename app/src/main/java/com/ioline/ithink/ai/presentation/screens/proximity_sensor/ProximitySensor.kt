@@ -7,74 +7,131 @@ import android.content.IntentFilter
 import android.hardware.Sensor
 import android.hardware.SensorManager
 import android.util.Log
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.colorResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ioline.ithink.ai.AppUtils
 import com.ioline.ithink.ai.R
-import com.ioline.ithink.ai.data.PersonRecord
-import com.ioline.ithink.ai.layout.getProximitySensorInfo
-import com.ioline.ithink.ai.presentation.components.ProximityService
+
 import com.ioline.ithink.ai.presentation.theme.FaceNetAndroidTheme
 import org.koin.androidx.compose.koinViewModel
 
 
-@Composable
-fun getProximitySensorInfo(context: Context): Triple<String?, String?, Float?> {
-    val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
-    val proximitySensor = sensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY)
 
-    return if (proximitySensor != null) {
-        Log.d("ProximityInfo", "Nome do sensor: ${proximitySensor.name}")
-        Log.d("ProximityInfo", "Fabricante: ${proximitySensor.vendor}")
-        Log.d("ProximityInfo", "Alcance máximo: ${proximitySensor.maximumRange}")
-
-        Triple(
-            proximitySensor.name,    // sensorName
-            proximitySensor.vendor,  // sensorVendor
-            proximitySensor.maximumRange  // sensorMaxRange
-        )
-    } else {
-        Triple(null, null, null) // Sensor não disponível
-    }
-}
 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProximitySensor(
+fun ProximitySensor( onLoaded: () -> Unit,
+    viewModel: ProximitySensorViewModel = koinViewModel()
+) {
+    val context = LocalContext.current
+
+    val sensorStatus by viewModel.sensorReadingStatus.collectAsState()
+
+    var hasLoaded by remember { mutableStateOf(false) }
+
+
+    // RECEBE O BROADCAST CORRETAMENTE
+    DisposableEffect(Unit) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(ctx: Context?, intent: Intent?) {
+                val distance = intent?.getFloatExtra("distance", 0f) ?: 0f
+                val isNear = intent?.getBooleanExtra("Near", false) ?: false
+                viewModel.updateSensor(distance)
+                viewModel.updateSensorStatus(isNear)
+                Log.d("ProximityService", "EVENT RECEIVED in Compose! $distance")
+            }
+        }
+
+        val filter = IntentFilter("PROXIMITY_SENSOR_UPDATE")
+
+        // ANDROID 14 FIX 🚨
+        context.registerReceiver(
+            receiver,
+            filter,
+            Context.RECEIVER_EXPORTED
+        )
+
+        onDispose {
+            context.unregisterReceiver(receiver)
+        }
+    }
+
+
+
+    FaceNetAndroidTheme {
+        Scaffold(
+            containerColor = Color.Black,
+            modifier = Modifier.fillMaxSize(),
+        ) { innerPadding ->
+
+            Column(
+                modifier = Modifier
+                    .padding(innerPadding)
+                    .padding(16.dp)
+                    .fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "Sensitivity",
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
+                val icon = if (sensorStatus) {
+                    Icons.Default.Visibility
+                } else {
+                    Icons.Default.VisibilityOff
+                }
+
+                Icon(
+                    imageVector = icon,
+                    contentDescription = "Sensor Status",
+                    tint = colorResource(id = R.color.white),
+                    modifier = Modifier
+                        .size(48.dp)
+                        .padding(top = 20.dp)
+                )
+            }
+        }
+    }
+
+    if (!hasLoaded) {
+        hasLoaded = true
+        onLoaded()   // <-- só agora diz ao layout para remover o loading!
+    }
+}
+
+
+
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ProximitySensor_old(
     viewModel: ProximitySensorViewModel = koinViewModel()
 ) {
     val context = LocalContext.current
 
     val sensorValue by viewModel.sensorReading.collectAsState()
     val sliderValue by viewModel.sensitivity.collectAsState()
-    //val maxRange = ProximityService.sensorMaxRange ?: 5f
 
 
-    val (proximityName, proximityVendor, maxRange) = getProximitySensorInfo(context)
+
+    val (proximityName, proximityVendor, maxRange) = AppUtils.getProximitySensorInfo(context)
     var safeMaxRange = maxRange ?: 5f
 
     if (proximityName == "Proximity sensor" && proximityVendor == "The Android Open Source Project") {
@@ -84,7 +141,6 @@ fun ProximitySensor(
     DisposableEffect(Unit) {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(ctx: Context?, intent: Intent?) {
-
                 val distance = intent?.getFloatExtra("distance", 0f) ?: 0f
                 viewModel.updateSensor(distance)
                 Log.d("ProximityService", "EVENT RECEIVED in Compose! $distance")
@@ -146,6 +202,8 @@ fun ProximitySensor(
                     )
                 }
 
+
+
                 Text(
                     text = "Sensitivity: ${sliderValue.toInt()}",
                     color = Color.LightGray,
@@ -164,6 +222,8 @@ fun ProximitySensor(
         }
     }
 }
+
+
 
 
 

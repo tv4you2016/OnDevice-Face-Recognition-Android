@@ -34,6 +34,8 @@ class CameraSensorViewModel(
         }
     }
 
+
+
     fun updateSensitivity(value: Float) {
         _sensitivity.value = value
 

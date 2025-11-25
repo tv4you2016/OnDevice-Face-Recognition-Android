@@ -23,14 +23,23 @@ import androidx.camera.core.ExperimentalGetImage
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.IntentFilter
+import androidx.camera.camera2.interop.Camera2CameraControl
+import androidx.compose.ui.platform.LocalContext
 import com.ioline.ithink.ai.settingsdatastore.SettingsDataStore
 import com.ioline.ithink.ai.settingsdatastore.AppSettings
 import androidx.lifecycle.lifecycleScope
+import com.ioline.ithink.ai.AppUtils
+import com.ioline.ithink.ai.AppUtils.openTargetAppSafe
+import com.ioline.ithink.ai.settingsdatastore.settingsDataStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 
 
 class CameraService : LifecycleService() {
+
+    private val settingsStore by lazy { SettingsDataStore(this) }
 
     private val TAG = "CameraService"
     private val cameraExecutor = Executors.newSingleThreadExecutor()
@@ -48,6 +57,13 @@ class CameraService : LifecycleService() {
     }
 
 
+    private val lastObjectSizes = ArrayDeque<Float>()
+    private val maxHistory = 5
+    private var lastProximityLevel: String = "Desconhecido"
+
+    // Flag interna para evitar abrir várias vezes
+    private var hasOpenedTargetApp = false
+
     override fun onCreate() {
         super.onCreate()
 
@@ -61,7 +77,7 @@ class CameraService : LifecycleService() {
         )
 
         startForegroundService()
-        startCameraAnalysis()
+        startCameraAnalysis(this)
     }
 
     private fun initializeSensorReference() {
@@ -72,7 +88,8 @@ class CameraService : LifecycleService() {
         lifecycleScope.launch {
             val currentSettings = settingsStore.settingsFlow.first() // pega o último valor
             sensorReference = currentSettings.camera.sensitivity * 10000f
-            Log.d("CameraService", "SensorReference inicializado: $sensorReference")
+
+           // Log.d("CameraService", "SensorReference inicializado: $sensorReference")
         }
     }
 
@@ -101,7 +118,9 @@ class CameraService : LifecycleService() {
 
     override fun onBind(intent: Intent) = super.onBind(intent)
 
-    private fun startCameraAnalysis() {
+    private fun startCameraAnalysis(context: Context) {
+
+
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
         cameraProviderFuture.addListener({
             val cameraProvider = cameraProviderFuture.get()
@@ -126,6 +145,10 @@ class CameraService : LifecycleService() {
                 Log.e(TAG, "Falha bind camera: ${e.message}")
             }
         }, ContextCompat.getMainExecutor(this))
+
+        AppUtils.stopLoading(context,"startCameraAnalysis")
+
+
     }
 
     @OptIn(ExperimentalGetImage::class)
@@ -141,23 +164,60 @@ class CameraService : LifecycleService() {
 
         val blockDiff = computeBlockDiff(lastFrameGray!!, smoothGray, width, height)
         val objectSize = computeObjectSize(lastFrameGray!!, smoothGray)
-
         lastFrameGray = smoothGray
 
-        val proximityLevel = if (objectSize > sensorReference) "Próximo" else "Distante"
+        // --- FILTRO ---
+        lastObjectSizes.add(objectSize.toFloat())
+        if (lastObjectSizes.size > maxHistory) lastObjectSizes.removeFirst()
 
+        // Média móvel
+        val filteredObjectSize = lastObjectSizes.average().toFloat()
 
-        Log.d(TAG, "sensorReference: $sensorReference blockDiff: $blockDiff, objectSize: $objectSize Status → $proximityLevel")
+        // Threshold mínimo para considerar movimento
+        val minMovementThreshold = 50f
 
+        // Hysteresis para evitar flutuações
+        val hysteresis = 200f
+        val previousLevel = lastProximityLevel
+        val proximityLevel = when {
+            filteredObjectSize > sensorReference + hysteresis && filteredObjectSize > minMovementThreshold && blockDiff > 10 -> getString(
+                com.ioline.ithink.ai.R.string.próximo)
+            filteredObjectSize < sensorReference - hysteresis -> getString(com.ioline.ithink.ai.R.string.distante)
+            else -> previousLevel // mantém o estado anterior se estiver na margem
+        }
+        lastProximityLevel = proximityLevel
+
+        // Log detalhado
+/*
+        Log.d(TAG, "sensorReference: $sensorReference blockDiff: $blockDiff objectSize: $objectSize " +
+                "filtered: $filteredObjectSize Status → $proximityLevel")
+*/
         // Envia broadcast para Compose ou outro listener
         val intent = Intent("CAMERA_SENSOR_UPDATE")
-
-       // intent.putExtra("blockDiff", blockDiff)
-       // intent.putExtra("objectSize", objectSize)
-
         intent.putExtra("proximityLevel", proximityLevel)
         sendBroadcast(intent)
+
+
+
+        // --- Abrir app se OpeniThink estiver true ---
+        CoroutineScope(Dispatchers.Main).launch {
+
+            // Depois (correto)
+            val openiThink = settingsStore.settingsFlow.first().OpeniThink.openApk
+            if (openiThink && !hasOpenedTargetApp) {
+                hasOpenedTargetApp = true // evita múltiplos opens
+                openTargetAppSafe(this@CameraService, "app.ioline.ithink")
+
+
+                // Opcional: reset da flag após alguns segundos se quiser permitir reabertura
+                launch(Dispatchers.Main) {
+                    kotlinx.coroutines.delay(5000) // 5s
+                    hasOpenedTargetApp = false
+                }
+            }
+        }
     }
+
 
     private fun computeObjectSize(a: ByteArray, b: ByteArray): Int {
         var changedPixels = 0

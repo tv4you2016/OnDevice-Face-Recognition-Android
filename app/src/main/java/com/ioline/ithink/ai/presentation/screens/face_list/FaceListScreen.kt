@@ -1,5 +1,6 @@
 package com.ioline.ithink.ai.presentation.screens.face_list
 
+import android.content.Intent
 import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -22,11 +23,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.consumeAllChanges
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ioline.ithink.ai.AppUtils
 import com.ioline.ithink.ai.R
 import com.ioline.ithink.ai.data.PersonRecord
 import com.ioline.ithink.ai.presentation.components.createAlertDialog
@@ -41,28 +44,20 @@ import org.koin.core.annotation.Single
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FaceListScreen(
-    onAddFaceClick: () -> Unit,
-) {
+fun FaceListScreen(onAddFaceClick: () -> Unit) {
+
+    val viewModel: FaceListScreenViewModel = koinViewModel()
+
     FaceNetAndroidTheme {
         Scaffold(
             containerColor = Color.Black,
             modifier = Modifier.fillMaxSize(),
+        ) {
+            Column(Modifier.padding(top = 16.dp)) {
 
-        ) { innerPadding ->
-            val viewModel: FaceListScreenViewModel = koinViewModel()
+                AddFaceHeader(onAddFaceClick)
 
-            Column(
-                modifier = Modifier
-                    //.padding(innerPadding)
-                    .padding(top = 16.dp)
-
-            ) {
-                AddFaceHeader(
-                    onAddFaceClick = onAddFaceClick
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(Modifier.height(8.dp))
 
                 Column(
                     modifier = Modifier
@@ -78,18 +73,16 @@ fun FaceListScreen(
                             fontWeight = FontWeight.SemiBold
                         ),
                         color = Color.White,
-                        modifier = Modifier
-                            .padding(vertical = 12.dp, horizontal = 8.dp),
+                        modifier = Modifier.padding(vertical = 12.dp, horizontal = 8.dp),
                     )
 
-                    ScreenUI(viewModel)
+                    ScreenUI(viewModel)   // PASSA O VIEWMODEL AQUI ✔
                 }
-
-
             }
         }
     }
 }
+
 
 @Composable
 private fun AddFaceHeader(onAddFaceClick: () -> Unit) {
@@ -141,26 +134,25 @@ private fun EmptyFacesUI() {
             style = MaterialTheme.typography.bodyLarge
         )
     }
+
+
+
 }
 
 @Composable
 private fun ScreenUI(viewModel: FaceListScreenViewModel) {
+    val context = LocalContext.current
+
     val faces by viewModel.personFlow.collectAsState(emptyList())
-
     val coroutineScope = rememberCoroutineScope()
-
-    // Estado do LazyColumn
     val listState = rememberLazyListState()
-
-    // Estado para permitir scroll somente quando a lista está "ativa"
     var scrollEnabled by remember { mutableStateOf(false) }
 
-    // Scroll state para controlar o drag manual
-    val scrollableState = rememberScrollableState { delta ->
-        if (scrollEnabled) {
-            // Atualiza a LazyColumn
-            delta
-        } else 0f
+
+    // 👉 PARA O LOADING AQUI
+    LaunchedEffect(faces) {
+        AppUtils.stopLoading(context, "FacesLoaded")
+
     }
 
     Box(
@@ -169,7 +161,6 @@ private fun ScreenUI(viewModel: FaceListScreenViewModel) {
             .heightIn(min = 120.dp, max = 300.dp)
             .border(1.dp, Color.Gray, RoundedCornerShape(12.dp))
             .background(Color(0xFF1A1A1A), RoundedCornerShape(12.dp))
-            // detecta quando começa a arrastar na lista
             .pointerInput(Unit) {
                 detectVerticalDragGestures(
                     onDragStart = { scrollEnabled = true },
@@ -177,11 +168,10 @@ private fun ScreenUI(viewModel: FaceListScreenViewModel) {
                     onDragCancel = { scrollEnabled = false },
                     onVerticalDrag = { change, dragAmount ->
                         if (scrollEnabled) {
-                            // move o scroll da LazyColumn
-                            val firstVisible = listState.firstVisibleItemIndex
-                            val offset = listState.firstVisibleItemScrollOffset
                             coroutineScope.launch {
-                                listState.scrollToItem(firstVisible, offset - dragAmount.toInt())
+                                val i = listState.firstVisibleItemIndex
+                                val o = listState.firstVisibleItemScrollOffset
+                                listState.scrollToItem(i, o - dragAmount.toInt())
                             }
                         }
                         change.consume()
@@ -191,7 +181,7 @@ private fun ScreenUI(viewModel: FaceListScreenViewModel) {
     ) {
         LazyColumn(
             state = listState,
-            userScrollEnabled = false, // controlado manualmente
+            userScrollEnabled = false,
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -271,6 +261,7 @@ private fun FaceListItem(
             textContentColor = Color.White
         )
     }
+
 
 
 

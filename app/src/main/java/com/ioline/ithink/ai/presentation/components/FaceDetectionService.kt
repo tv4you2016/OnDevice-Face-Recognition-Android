@@ -21,7 +21,7 @@ import kotlinx.coroutines.*
 import org.koin.android.ext.android.inject
 import java.util.concurrent.Executors
 import androidx.core.graphics.createBitmap
-import com.ioline.ithink.ai.AppUtils.openTargetApp
+
 
 @ExperimentalGetImage
 class FaceDetectionService : Service() {
@@ -98,6 +98,7 @@ class FaceDetectionService : Service() {
             cameraProvider?.unbindAll()
             cameraProvider?.bindToLifecycle(/* lifecycleOwner = */ FakeLifecycleOwner(), cameraSelector, frameAnalyzer)
         }, executor)
+
     }
 
     private val analyzer = ImageAnalysis.Analyzer { image ->
@@ -131,10 +132,12 @@ class FaceDetectionService : Service() {
                 if (spoofResult != null && spoofResult.isSpoof) {
                     personName = "$personName (Spoof: ${spoofResult.score})"
                 }
+
                 Log.i("IOLine", "Detectado: $personName")
+
                 //openlockNowApp(applicationContext)
                 if (personName.isEmpty() || personName != "Not recognized") {
-                    openTargetApp(applicationContext, true)
+
 
                 }
             }
