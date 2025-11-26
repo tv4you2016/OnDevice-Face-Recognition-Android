@@ -185,36 +185,42 @@ class CameraService : LifecycleService() {
             filteredObjectSize < sensorReference - hysteresis -> getString(com.ioline.ithink.ai.R.string.distante)
             else -> previousLevel // mantém o estado anterior se estiver na margem
         }
-        lastProximityLevel = proximityLevel
 
-        // Log detalhado
-/*
-        Log.d(TAG, "sensorReference: $sensorReference blockDiff: $blockDiff objectSize: $objectSize " +
-                "filtered: $filteredObjectSize Status → $proximityLevel")
-*/
+        /*
+                // Log detalhado
+                Log.d(TAG, "sensorReference: $sensorReference blockDiff: $blockDiff objectSize: $objectSize " +
+                        "filtered: $filteredObjectSize Status → $proximityLevel")
+        */
+
         // Envia broadcast para Compose ou outro listener
         val intent = Intent("CAMERA_SENSOR_UPDATE")
         intent.putExtra("proximityLevel", proximityLevel)
         sendBroadcast(intent)
 
+        if (proximityLevel != lastProximityLevel ) {
+            if (getString(com.ioline.ithink.ai.R.string.distante) == proximityLevel) {
+                // --- Abrir app se OpeniThink estiver true ---
+                CoroutineScope(Dispatchers.Main).launch {
 
-        // --- Abrir app se OpeniThink estiver true ---
-        CoroutineScope(Dispatchers.Main).launch {
-
-            // Depois (correto)
-            val openiThink = settingsStore.settingsFlow.first().OpeniThink.openApk
-            if (openiThink && !hasOpenedTargetApp) {
-                hasOpenedTargetApp = true // evita múltiplos opens
-                openTargetAppSafe(this@CameraService, "app.ioline.ithink")
+                    // Depois (correto)
+                    val openiThink = settingsStore.settingsFlow.first().OpeniThink.openApk
+                    if (openiThink && !hasOpenedTargetApp) {
+                        hasOpenedTargetApp = true // evita múltiplos opens
+                        openTargetAppSafe(this@CameraService, "app.ioline.ithink")
 
 
-                // Opcional: reset da flag após alguns segundos se quiser permitir reabertura
-                launch(Dispatchers.Main) {
-                    kotlinx.coroutines.delay(5000) // 5s
-                    hasOpenedTargetApp = false
+                        // Opcional: reset da flag após alguns segundos se quiser permitir reabertura
+                        launch(Dispatchers.Main) {
+                            kotlinx.coroutines.delay(5000) // 5s
+                            hasOpenedTargetApp = false
+                        }
+                    }
                 }
             }
         }
+
+
+        lastProximityLevel = proximityLevel
     }
 
 
