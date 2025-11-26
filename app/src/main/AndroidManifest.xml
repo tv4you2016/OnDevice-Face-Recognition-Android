@@ -50,7 +50,6 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.FaceNetAndroid"
-        android:screenOrientation="landscape"
         tools:targetApi="31">
 
         <service
@@ -83,7 +82,8 @@
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
-            android:theme="@style/Theme.FaceNetAndroid">
+            android:theme="@style/Theme.FaceNetAndroid"
+            android:screenOrientation="landscape">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

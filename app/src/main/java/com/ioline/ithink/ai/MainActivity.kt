@@ -36,22 +36,6 @@ class MainActivity : ComponentActivity() {
     private lateinit var permissionManager: PermissionManager
 
 
-    @Composable
-    fun LoadingExample() {
-        val isLoading by AppUtils.GlobalLoadingController()
-
-        Box(
-            Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            if (isLoading) {
-                AppUtils.LoadingScreen()
-            } else {
-                MainLayout()
-            }
-        }
-    }
-
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -95,16 +79,18 @@ class MainActivity : ComponentActivity() {
                     startDestination = "main_layout"
                 ) {
                     composable("main_layout") {
-                        LoadingExample()
-                        /*
-                        if (globalLoading) {
-                            AppUtils.LoadingScreen()
+                        val isLoading by AppUtils.GlobalLoadingController()
 
-                        } else {
-                            MainLayout()
+                        Box(
+                            Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isLoading) {
+                                AppUtils.LoadingScreen()
+                            } else {
+                                MainLayout()
+                            }
                         }
-
-                         */
                     }
                 }
             }

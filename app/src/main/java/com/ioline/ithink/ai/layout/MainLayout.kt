@@ -69,6 +69,7 @@ import com.ioline.ithink.ai.settingsdatastore.AppSettings
 import com.ioline.ithink.ai.presentation.components.ProximityService
 import com.ioline.ithink.ai.presentation.components.CameraService
 import com.ioline.ithink.ai.presentation.components.FaceDetectionService
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 
 
@@ -76,9 +77,10 @@ import kotlinx.coroutines.flow.first
 // Definindo as opções disponíveis
 enum class Option {
     //ProximityDetection,
+    None,
     FacialDetection,
     CameraDetection,
-    None
+
 }
 
 
@@ -264,7 +266,7 @@ fun SectionTitle(title: String) {
         color = Color(0xFFff931e), // azul parecido
         fontWeight = FontWeight.SemiBold,
         fontSize = 16.sp,
-        modifier = Modifier.padding(bottom = 8.dp)
+        modifier = Modifier.padding(2.dp)
     )
 }
 
@@ -276,6 +278,19 @@ private fun SettingItemContent(
     onAddFaceClick: () -> Unit
 ) {
 
+    val context = LocalContext.current
+    val settingsStore = remember { SettingsDataStore(context) }
+
+    // Executa apenas uma vez quando o composable (Jetpack Compose function) entra na composição
+    LaunchedEffect(Unit) {
+        val current = settingsStore.settingsFlow.first()
+        val updated = current.copy(
+            OpeniThink = current.OpeniThink.copy(openApk = false)
+        )
+        settingsStore.saveSettings(updated)
+    }
+
+
     AppUtils.startLoading(LocalContext.current , "SettingItemContent -> $option\"")
 
 
@@ -283,7 +298,7 @@ private fun SettingItemContent(
         modifier = Modifier
             .fillMaxWidth()
             .animateContentSize()
-            .padding(top = 12.dp, bottom = 12.dp)
+            .padding(top = 2.dp, bottom = 2.dp)
             .heightIn(min = 120.dp, max = 260.dp)
     ) {
 
@@ -291,7 +306,10 @@ private fun SettingItemContent(
         when (option) {
 
 
-            Option.CameraDetection -> CameraSensor()
+            Option.CameraDetection -> {
+
+                CameraSensor()
+            }
 
 
 
@@ -430,7 +448,7 @@ fun MainLayout() {
                                 settingsStore.saveSettings(updated)
 
                             }
-/*
+
                             AppUtils.startLoading(context, "openTargetApp")
                             try {
                                 WakeLock().wakeUpScreen(context)
@@ -441,7 +459,7 @@ fun MainLayout() {
                                 AppUtils.stopLoading(context, "openTargetApp")
                             }
 
- */
+
                         },
                         colors = NavigationBarItemDefaults.colors(
                             indicatorColor = Color.Transparent,
@@ -460,7 +478,7 @@ fun MainLayout() {
                     modifier = Modifier
                         .padding(horizontal = 10.dp)
                         .fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 80.dp)
+                    contentPadding = PaddingValues(bottom = 40.dp)
                 ) {
                     item { SectionTitle("Detection Type:") }
 

@@ -33,6 +33,12 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.ContextCompat.registerReceiver
 import com.ioline.ithink.ai.presentation.components.AppLoading
 import kotlinx.coroutines.launch
+import androidx.core.net.toUri
+import com.ioline.ithink.ai.layout.Option
+import com.ioline.ithink.ai.layout.startServiceIfNeeded
+import com.ioline.ithink.ai.settingsdatastore.SettingsDataStore
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.flow.first
 
 object AppUtils {
 
@@ -50,15 +56,30 @@ object AppUtils {
             Log.d("AppUtils", "Play Store já está aberta, não será aberta novamente.")
             return
         }
+
+        // Atualiza o detectionType para Option.None
+        // 🔥 Atualiza Option.None diretamente no DataStore
+            val settingsStore = SettingsDataStore(context)
+            GlobalScope.launch {
+                val current = settingsStore.settingsFlow.first()
+                val updated = current.copy(detectionType = Option.None)
+                settingsStore.saveSettings(updated)
+                Log.d("AppUtils", "DetectionType -> Option.None (forçado pelo openPlayStore)")
+
+                // 🔥 Desliga qualquer serviço de detecção imediatamente
+                startServiceIfNeeded(context, Option.None)
+
+            }
+
         try {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$packageName"))
+            val intent = Intent(Intent.ACTION_VIEW, "market://details?id=$packageName".toUri())
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(intent)
         } catch (e: ActivityNotFoundException) {
             // Play Store não disponível, abrir via browser
             val intent = Intent(
                 Intent.ACTION_VIEW,
-                Uri.parse("https://play.google.com/store/apps/details?id=$packageName")
+                "https://play.google.com/store/apps/details?id=$packageName".toUri()
             )
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(intent)
@@ -110,10 +131,12 @@ object AppUtils {
             } else {
                 //Log.e("AppUtils", "App não encontrado ou Activity principal não exportada: $packageName")
                 openPlayStore(context,packageName)
+
             }
         } catch (e: Exception) {
             //Log.e("AppUtils", "Erro geral ao tentar abrir app", e)
             openPlayStore(context,packageName)
+
         }
     }
 

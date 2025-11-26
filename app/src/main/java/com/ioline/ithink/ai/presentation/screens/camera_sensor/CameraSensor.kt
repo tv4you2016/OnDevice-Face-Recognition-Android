@@ -65,7 +65,7 @@ fun CameraSensor( viewModel: CameraSensorViewModel = koinViewModel()
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp),
+            .padding(2.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
@@ -73,7 +73,7 @@ fun CameraSensor( viewModel: CameraSensorViewModel = koinViewModel()
             color = Color.White,
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 8.dp)
+            modifier = Modifier.padding(bottom = 2.dp)
         )
 
         Column {
@@ -106,8 +106,8 @@ fun CameraSensor( viewModel: CameraSensorViewModel = koinViewModel()
             contentDescription = sensorStatus,
             tint = Color.Unspecified, // mantém as cores originais
             modifier = Modifier
-                .size(54.dp)
-                .padding(top = 10.dp)
+                .size(100.dp)
+                .padding(top = 2.dp)
         )
 
     }
