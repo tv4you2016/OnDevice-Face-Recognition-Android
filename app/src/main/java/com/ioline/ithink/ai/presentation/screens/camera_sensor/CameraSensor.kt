@@ -33,20 +33,24 @@ import org.koin.androidx.compose.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CameraSensor( viewModel: CameraSensorViewModel = koinViewModel()
+fun CameraSensor(
+    viewModel: CameraSensorViewModel = koinViewModel()
 ) {
+    val context = LocalContext.current
+
+    // State vindo do ViewModel (View Model – modelo de vista)
     val sensorStatus by viewModel.sensorCameraStatus.collectAsState()
     val sliderValue by viewModel.sensitivity.collectAsState()
 
+    // Constantes (não mudam)
     val min = 100f
-    val max = 10000f
+    val max = 10_000f
     val invertedValue = max - sliderValue
 
-    val context = LocalContext.current
-
+    // 🔄 BroadcastReceiver registado só enquanto este composable está na tela
     DisposableEffect(context) {
         val receiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context?, intent: Intent?) {
+            override fun onReceive(ctx: Context?, intent: Intent?) {
                 if (intent?.action == "CAMERA_SENSOR_UPDATE") {
                     val status = intent.getStringExtra("proximityLevel") ?: "Desconhecido"
                     viewModel.updateSensorStatus(status)
@@ -55,12 +59,25 @@ fun CameraSensor( viewModel: CameraSensorViewModel = koinViewModel()
         }
 
         val filter = IntentFilter("CAMERA_SENSOR_UPDATE")
-        registerReceiver(context, receiver, filter, ContextCompat.RECEIVER_EXPORTED)
+        ContextCompat.registerReceiver(
+            context,
+            receiver,
+            filter,
+            ContextCompat.RECEIVER_EXPORTED
+        )
 
-        onDispose { context.unregisterReceiver(receiver) }
+        onDispose {
+            context.unregisterReceiver(receiver)
+        }
     }
 
-
+    // Ícone derivado do estado (state – estado)
+    val isNear = sensorStatus == context.getString(R.string.proximo)
+    val icon: ImageVector = if (isNear) {
+        ImageVector.vectorResource(id = R.drawable.ic_satisfied)
+    } else {
+        ImageVector.vectorResource(id = R.drawable.ic_dissatisfied)
+    }
 
     Column(
         modifier = Modifier
@@ -76,41 +93,30 @@ fun CameraSensor( viewModel: CameraSensorViewModel = koinViewModel()
             modifier = Modifier.padding(bottom = 2.dp)
         )
 
-        Column {
-            //Text(text = "Distância: ${sliderValue.toInt()}", color = Color.White)
-            Slider(
-                value = invertedValue,
-                onValueChange = { viewModel.updateSensitivity(max - it) }, // converte de volta
-                valueRange = min..max,
-                colors = SliderDefaults.colors(
-                    activeTrackColor = colorResource(id = R.color.md_orange),
-                    inactiveTrackColor = Color.Gray,
-                    thumbColor = colorResource(id = R.color.md_orange),
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(96.dp)
-            )
-        }
-        val context = LocalContext.current
-
-
-        val icon: ImageVector = if (sensorStatus == context.getString(R.string.próximo)) {
-            ImageVector.vectorResource(id = R.drawable.ic_satisfied)
-        } else {
-            ImageVector.vectorResource(id = R.drawable.ic_dissatisfied)
-        }
+        Slider(
+            value = invertedValue,
+            onValueChange = { viewModel.updateSensitivity(max - it) },
+            valueRange = min..max,
+            colors = SliderDefaults.colors(
+                activeTrackColor = colorResource(id = R.color.md_orange),
+                inactiveTrackColor = Color.Gray,
+                thumbColor = colorResource(id = R.color.md_orange),
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(96.dp)
+        )
 
         Icon(
             imageVector = icon,
             contentDescription = sensorStatus,
-            tint = Color.Unspecified, // mantém as cores originais
+            tint = Color.Unspecified,
             modifier = Modifier
                 .size(100.dp)
                 .padding(top = 2.dp)
         )
-
     }
 
-    //AppUtils.stopLoading(LocalContext.current,"CameraSensor")
+    // Continua comentado – evita side-effects pesados na UI:
+    // AppUtils.stopLoading(LocalContext.current,"CameraSensor")
 }

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Mordomus Tavo</string>
+    <string name="no_faces">Sem utilizadores registados</string>
+    <string name="add_faces">Adicionar utilizador</string>
+    <string name="add_facesOK">Utilizador adicionado</string>
+    <string name="proximo">Perto</string>
+    <string name="distante">Longe</string>
+
+    <plurals name="user_list_title">
+        <item quantity="one">Lista de utilizadores (%d)</item>
+        <item quantity="other">Lista de utilizadores (%d)</item>
+    </plurals>
+
+    <string name="DetectionType">Tipo de deteção:</string>
+    <string name="facial_detect">Deteção facial</string>
+    <string name="camera_movement">Movimento da câmara</string>
+    <string name="none_power_button">Nenhum (botão de energia)</string>
+</resources>

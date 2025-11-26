@@ -1,10 +1,19 @@
 <resources>
-    <string name="app_name">iTHINKAI</string>
+    <string name="app_name">Mordomus Tavo</string>
     <string name="no_faces">No User Faces</string>
     <string name="add_faces">Add User</string>
     <string name="add_facesOK">Added</string>
-    <string name="próximo">Próximo</string>
-    <string name="distante">Distante</string>
+    <string name="proximo">near</string>
+    <string name="distante">Distant</string>
 
+    <plurals name="user_list_title">
+        <item quantity="one">User List (%d)</item>
+        <item quantity="other">Users List (%d)</item>
+    </plurals>
+
+    <string name="DetectionType">Detection Type:</string>
+    <string name="facial_detect">Facial Detect</string>
+    <string name="camera_movement">Camera movement</string>
+    <string name="none_power_button">None (Power Button)</string>
 
 </resources>

@@ -21,11 +21,18 @@ import kotlinx.coroutines.*
 import org.koin.android.ext.android.inject
 import java.util.concurrent.Executors
 import androidx.core.graphics.createBitmap
+import com.ioline.ithink.ai.AppUtils.openTargetAppSafe
+import com.ioline.ithink.ai.settingsdatastore.SettingsDataStore
+import kotlinx.coroutines.flow.first
 
 
 @ExperimentalGetImage
 class FaceDetectionService : Service() {
 
+    private val settingsStore by lazy { SettingsDataStore(this) }
+
+    // Flag interna para evitar abrir várias vezes
+    private var hasOpenedTargetApp = false
 
     private val personUseCase: PersonUseCase by inject()
     private val imageVectorUseCase: ImageVectorUseCase by inject()
@@ -122,6 +129,7 @@ class FaceDetectionService : Service() {
             0, 0, bitmap.width, bitmap.height, imageTransform, false
         )
 
+
         coroutineScope.launch {
             val (metrics, results) = imageVectorUseCase.getNearestPersonName(rotatedBitmap, false)
 
@@ -137,7 +145,24 @@ class FaceDetectionService : Service() {
 
                 //openlockNowApp(applicationContext)
                 if (personName.isEmpty() || personName != "Not recognized") {
+                    // --- Abrir app se OpeniThink estiver true ---
+                    CoroutineScope(Dispatchers.Main).launch {
 
+                        // Depois (correto)
+                        val openiThink = settingsStore.settingsFlow.first().OpeniThink.openApk
+                        
+                        if (openiThink && !hasOpenedTargetApp) {
+                            hasOpenedTargetApp = true // evita múltiplos opens
+                            openTargetAppSafe(this@FaceDetectionService, "app.ioline.ithink")
+
+
+                            // Opcional: reset da flag após alguns segundos se quiser permitir reabertura
+                            launch(Dispatchers.Main) {
+                                kotlinx.coroutines.delay(5000) // 5s
+                                hasOpenedTargetApp = false
+                            }
+                        }
+                    }
 
                 }
             }

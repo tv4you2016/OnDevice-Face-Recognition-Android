@@ -181,7 +181,7 @@ class CameraService : LifecycleService() {
         val previousLevel = lastProximityLevel
         val proximityLevel = when {
             filteredObjectSize > sensorReference + hysteresis && filteredObjectSize > minMovementThreshold && blockDiff > 10 -> getString(
-                com.ioline.ithink.ai.R.string.próximo)
+                com.ioline.ithink.ai.R.string.proximo)
             filteredObjectSize < sensorReference - hysteresis -> getString(com.ioline.ithink.ai.R.string.distante)
             else -> previousLevel // mantém o estado anterior se estiver na margem
         }
@@ -196,7 +196,6 @@ class CameraService : LifecycleService() {
         val intent = Intent("CAMERA_SENSOR_UPDATE")
         intent.putExtra("proximityLevel", proximityLevel)
         sendBroadcast(intent)
-
 
 
         // --- Abrir app se OpeniThink estiver true ---

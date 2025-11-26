@@ -1,19 +1,9 @@
 package com.ioline.ithink.ai.layout
 
 
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
-import android.util.Log
 import androidx.camera.core.ExperimentalGetImage
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -21,7 +11,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Face
@@ -45,17 +34,14 @@ import androidx.compose.ui.unit.sp
 
 
 import com.ioline.ithink.ai.R
-import com.ioline.ithink.ai.presentation.components.AppLoading
 import com.ioline.ithink.ai.presentation.screens.add_face.AddFaceScreen
 import com.ioline.ithink.ai.presentation.screens.camera_sensor.CameraSensor
 import com.ioline.ithink.ai.presentation.screens.face_list.FaceListScreen
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.core.content.ContextCompat
-import androidx.core.content.ContextCompat.registerReceiver
+import androidx.compose.ui.res.stringResource
 import com.ioline.ithink.ai.AppUtils
 import com.ioline.ithink.ai.AppUtils.openTargetAppSafe
 import com.ioline.ithink.ai.WakeLock
@@ -69,9 +55,6 @@ import com.ioline.ithink.ai.settingsdatastore.AppSettings
 import com.ioline.ithink.ai.presentation.components.ProximityService
 import com.ioline.ithink.ai.presentation.components.CameraService
 import com.ioline.ithink.ai.presentation.components.FaceDetectionService
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.first
-
 
 // APP UTILS
 // Definindo as opções disponíveis
@@ -155,15 +138,12 @@ fun SettingItem(
     expandedOption: Option?,
     onExpandChange: (Option?) -> Unit
 ) {
-
-
     val isExpandable = option == Option.FacialDetection || option == Option.CameraDetection
     val isExpanded = isExpandable && expandedOption == option
 
-    val borderColor by animateColorAsState(
-        targetValue = if (isExpanded) colorResource(id = R.color.md_orange) else Color.Gray,
-        label = "borderColor"
-    )
+    // ❌ sem animateColorAsState
+    val borderColor =
+        if (isExpanded) colorResource(id = R.color.md_orange) else Color.Gray
 
     Column(
         modifier = Modifier
@@ -172,7 +152,7 @@ fun SettingItem(
             .shadow(elevation = shadowElevation, shape = RoundedCornerShape(cornerRadius))
             .background(Color.Black, RoundedCornerShape(cornerRadius))
             .border(borderWidth, borderColor, RoundedCornerShape(cornerRadius))
-            .animateContentSize()
+            // ❌ sem animateContentSize
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         Row(
@@ -187,12 +167,21 @@ fun SettingItem(
                     tint = Color.White,
                     modifier = Modifier.padding(end = 16.dp)
                 )
-                Text(
-                    text = title,
-                    fontSize = 16.sp,
-                    color = Color.White,
-                    fontWeight = FontWeight.Medium
-                )
+                Column {
+                    Text(
+                        text = title,
+                        fontSize = 16.sp,
+                        color = Color.White,
+                        fontWeight = FontWeight.Medium
+                    )
+                    if (description != null) {
+                        Text(
+                            text = description,
+                            fontSize = 12.sp,
+                            color = Color.LightGray
+                        )
+                    }
+                }
             }
 
             if (toggleVisible) {
@@ -203,24 +192,18 @@ fun SettingItem(
 
                         if (isExpandable && isChecked) {
                             onExpandChange(option)
-/*
-                            // 🔥 Mostra loading global
-                            context.sendBroadcast(
-                                Intent("GLOBAL_LOADING_UPDATE").apply { putExtra("loading", true) }
-                            )
-*/
                         } else if (!isChecked) {
                             onExpandChange(null)
                         }
-
                     },
                     enabled = toggleEnabled
                 )
-
             }
         }
 
-        AnimatedVisibility(visible = isExpanded) {
+        // ❌ sem AnimatedVisibility
+        if (isExpanded) {
+            Spacer(modifier = Modifier.height(8.dp))
             SettingItemContent(
                 option = option,
                 description = description,
@@ -233,30 +216,26 @@ fun SettingItem(
 
 
 @Composable
-fun FullscreenOverlay( onDismiss: () -> Unit) {
-    AnimatedVisibility(
-        visible = true,
-        enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
-        exit = fadeOut() + slideOutVertically(targetOffsetY = { it })
+fun FullscreenOverlay(onDismiss: () -> Unit) {
+    // ❌ sem AnimatedVisibility
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.4f))
     ) {
-        Box(
+        Surface(
             modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.4f))
+                .align(Alignment.Center)
+                .fillMaxSize(),
+            color = Color.White
         ) {
-            Surface(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .fillMaxSize(),
-                color = Color.White
-            ) {
-                AddFaceScreen(onNavigateBack = {
-                    onDismiss() // Chama o onDismiss quando a sobreposição for fechada
-                })
-            }
+            AddFaceScreen(
+                onNavigateBack = { onDismiss() }
+            )
         }
     }
 }
+
 
 
 @Composable
@@ -271,59 +250,41 @@ fun SectionTitle(title: String) {
 }
 
 
+
 @Composable
 private fun SettingItemContent(
     option: Option,
     description: String?,
     onAddFaceClick: () -> Unit
 ) {
-
-    val context = LocalContext.current
-    val settingsStore = remember { SettingsDataStore(context) }
-
-    // Executa apenas uma vez quando o composable (Jetpack Compose function) entra na composição
-    LaunchedEffect(Unit) {
-        val current = settingsStore.settingsFlow.first()
-        val updated = current.copy(
-            OpeniThink = current.OpeniThink.copy(openApk = false)
-        )
-        settingsStore.saveSettings(updated)
-    }
-
-
-    AppUtils.startLoading(LocalContext.current , "SettingItemContent -> $option\"")
-
+    // ❌ Sem DataStore aqui
+    // ❌ Sem AppUtils.startLoading aqui
+    // ✅ Só UI
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .animateContentSize()
             .padding(top = 2.dp, bottom = 2.dp)
-            .heightIn(min = 120.dp, max = 260.dp)
+            .heightIn(min = 120.dp, max = 260.dp)   // já é suficiente
     ) {
-
-
         when (option) {
-
-
             Option.CameraDetection -> {
-
                 CameraSensor()
             }
 
-
-
-            Option.FacialDetection -> FaceListScreen(
-                onAddFaceClick = onAddFaceClick,
-            )
+            Option.FacialDetection -> {
+                FaceListScreen(
+                    onAddFaceClick = onAddFaceClick,
+                )
+            }
 
             Option.None -> {
-
+                // nada
             }
         }
     }
-
 }
+
 
 
 
@@ -355,185 +316,159 @@ private fun DetectionSwitch(
 
 
 
-@androidx.annotation.OptIn(ExperimentalGetImage::class)
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalGetImage::class)
 @Composable
-fun MainLayout() {
+fun MainLayout(
+    settingsStore: SettingsDataStore,
+    initialSettings: AppSettings
+) {
     val context = LocalContext.current
 
-    // === DataStore ===
-    val settingsStore = remember { SettingsDataStore(context) }
-    val settings by settingsStore.settingsFlow.collectAsState(initial = AppSettings())
+    // Começa com o que já veio do splash/root
+    val settings by settingsStore.settingsFlow.collectAsState(initial = initialSettings)
     var currentSettings by remember { mutableStateOf(settings) }
-    LaunchedEffect(settings) { currentSettings = settings }
+    LaunchedEffect(settings) {
+        currentSettings = settings
+    }
 
-    // === UI States ===
     var overlayVisible by remember { mutableStateOf(false) }
     var expandedOption by remember { mutableStateOf<Option?>(currentSettings.detectionType) }
     val coroutineScope = rememberCoroutineScope()
     val listState = rememberLazyListState()
 
-
-
-    //Log.d("Loading","MainLayout")
-    //AppUtils.startLoading(context)
-
-    // 🔥 Ativa loading global imediatamente e inicia serviço
+    // Sempre que detectionType mudar -> garante serviço correto
     LaunchedEffect(currentSettings.detectionType) {
         startServiceIfNeeded(context, currentSettings.detectionType)
         expandedOption = currentSettings.detectionType
     }
 
-/*
-    // Sempre que o detectionType mudar, garante que o serviço esteja ativo
-    DisposableEffect(currentSettings.detectionType) {
-        startServiceIfNeeded(context, currentSettings.detectionType)
-        expandedOption = currentSettings.detectionType
-        onDispose {
-            // opcional: parar serviços ao sair do layout se desejar
-        }
-    }
-
-    // Garante que o serviço facial reinicie após fechar o overlay
-    LaunchedEffect(overlayVisible) {
-        if (!overlayVisible) {
-            startServiceIfNeeded(context, currentSettings.detectionType)
-            expandedOption = currentSettings.detectionType
-        }
-    }
-*/
-   // globalLoading = False;
-    // --- Se loading global estiver ativo, mostra só o loading ---
-
-
-        // --- Layout principal ---
-        Scaffold(
-            containerColor = Color.Black,
-            topBar = {
-                TopAppBar(
-                    title = { Text("Mordomus Tavo", color = Color.White, fontWeight = FontWeight.Bold) },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Black),
-                    actions = {
-                        if (overlayVisible) {
-                            IconButton(onClick = { overlayVisible = false }) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Default.ArrowBack,
-                                    contentDescription = "Navigate Back",
-                                    tint = Color.White
-                                )
-                            }
+    Scaffold(
+        containerColor = Color.Black,
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text(
+                            "Mordomus Tavo",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Black),
+                actions = {
+                    if (overlayVisible) {
+                        IconButton(onClick = { overlayVisible = false }) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Navigate Back",
+                                tint = Color.White
+                            )
                         }
                     }
-                )
-            },
-            bottomBar = {
-                NavigationBar(modifier = Modifier.height(75.dp), containerColor = Color.Black) {
-                    NavigationBarItem(
-                        icon = {
-                            Icon(
-                                painterResource(id = R.drawable.ic_mordomus_ithink),
-                                contentDescription = "Home",
-                                tint = Color.Unspecified,
-                                modifier = Modifier.size(44.dp)
-                            )
-                        },
-                        selected = true,
-                        onClick = {
-                            coroutineScope.launch {
-                                // Atualiza o AppSettings
-                                val current = settingsStore.settingsFlow.first()
-                                val updated = current.copy(
-                                    OpeniThink = current.OpeniThink.copy(openApk = true)
-                                )
-                                settingsStore.saveSettings(updated)
-
-                            }
-
-                            AppUtils.startLoading(context, "openTargetApp")
-                            try {
-                                WakeLock().wakeUpScreen(context)
-                                WakeLock().unlockScreen(context)
-
-                                openTargetAppSafe(context, "app.ioline.ithink")
-                            } finally {
-                                AppUtils.stopLoading(context, "openTargetApp")
-                            }
-
-
-                        },
-                        colors = NavigationBarItemDefaults.colors(
-                            indicatorColor = Color.Transparent,
-                            selectedIconColor = Color.Unspecified,
-                            unselectedIconColor = Color.Unspecified
+                }
+            )
+        },
+        bottomBar = {
+            NavigationBar(modifier = Modifier.height(75.dp), containerColor = Color.Black) {
+                NavigationBarItem(
+                    icon = {
+                        Icon(
+                            painterResource(id = R.drawable.ic_mordomus_ithink),
+                            contentDescription = "Home",
+                            tint = Color.Unspecified,
+                            modifier = Modifier.size(44.dp)
                         )
+                    },
+                    selected = true,
+                    onClick = {
+                        coroutineScope.launch {
+                            // aqui também podes por o openApk = true
+                            val updated = currentSettings.copy(
+                                OpeniThink = currentSettings.OpeniThink.copy(openApk = true)
+                            )
+                            settingsStore.saveSettings(updated)
+                        }
+
+                        AppUtils.startLoading(context, "openTargetApp")
+                        try {
+                            WakeLock().wakeUpScreen(context)
+                            WakeLock().unlockScreen(context)
+                            openTargetAppSafe(context, "app.ioline.ithink")
+                        } finally {
+                            AppUtils.stopLoading(context, "openTargetApp")
+                        }
+                    },
+                    colors = NavigationBarItemDefaults.colors(
+                        indicatorColor = Color.Transparent,
+                        selectedIconColor = Color.Unspecified,
+                        unselectedIconColor = Color.Unspecified
+                    )
+                )
+            }
+        }
+    ) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .padding(paddingValues)
+                .fillMaxSize()
+        ) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .padding(horizontal = 10.dp)
+                    .fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 40.dp)
+            ) {
+                item { SectionTitle(stringResource(id = R.string.DetectionType),) }
+
+                itemsIndexed(settingsOptions) { index, option ->
+                    val isEnabled = currentSettings.detectionType == option
+                    val title = when (option) {
+                        Option.FacialDetection -> context.getString(R.string.facial_detect)
+                        Option.CameraDetection -> context.getString(R.string.camera_movement)
+                        Option.None -> context.getString(R.string.none_power_button)
+                    }
+                    val icon = when (option) {
+                        Option.FacialDetection -> Icons.Default.FaceRetouchingNatural
+                        Option.CameraDetection -> Icons.Default.Face
+                        Option.None -> Icons.Default.Close
+                    }
+
+                    SettingItem(
+                        title = title,
+                        description = null,
+                        enabled = isEnabled,
+                        onToggleChange = { checked ->
+                            if (checked) {
+                                coroutineScope.launch {
+                                    val updated = currentSettings.copy(
+                                        detectionType = option,
+                                        // aqui tratamos também do openApk = false
+                                        OpeniThink = currentSettings.OpeniThink.copy(openApk = false)
+                                    )
+                                    settingsStore.saveSettings(updated)
+                                }
+
+                                expandedOption = if (option == Option.None) null else option
+                            }
+                        },
+                        toggleVisible = true,
+                        toggleEnabled = true,
+                        option = option,
+                        iconImage = icon,
+                        expandedOption = expandedOption,
+                        onAddFaceClick = {
+                            if (option == Option.FacialDetection) overlayVisible = true
+                        },
+                        onExpandChange = { /* podemos ignorar ou implementar depois */ }
                     )
                 }
             }
-        ) { paddingValues ->
-            Box(modifier = Modifier
-                .padding(paddingValues)
-                .fillMaxSize()) {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier
-                        .padding(horizontal = 10.dp)
-                        .fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 40.dp)
-                ) {
-                    item { SectionTitle("Detection Type:") }
 
-                    itemsIndexed(settingsOptions) { index, option ->
-                        val isEnabled = currentSettings.detectionType == option
-                        val title = when (option) {
-
-                            Option.FacialDetection -> "Facial Detect"
-                            Option.CameraDetection -> "Camera movement"
-                            Option.None -> "None (Power Button)"
-                        }
-                        val icon = when (option) {
-
-                            Option.FacialDetection -> Icons.Default.FaceRetouchingNatural
-                            Option.CameraDetection -> Icons.Default.Face
-                            Option.None -> Icons.Default.Close
-                        }
-
-                        SettingItem(
-                            title = title,
-                            description = null,
-                            enabled = isEnabled,
-                            onToggleChange = { checked ->
-                                if (checked) {
-                                    val newSettings = currentSettings.copy(detectionType = option)
-                                    currentSettings = newSettings
-                                    coroutineScope.launch { settingsStore.saveSettings(newSettings) }
-                                    // Somente expandir se for expandível
-                                    if (option == Option.None) {
-                                        expandedOption = null
-
-                                    } else {
-                                        expandedOption = option
-                                    }
-                                }
-                            },
-                            toggleVisible = true,
-                            toggleEnabled = true,
-                            option = option,
-                            iconImage = icon,
-                            expandedOption = expandedOption,
-                            onAddFaceClick = { if (option == Option.FacialDetection) overlayVisible = true },
-                            onExpandChange = { /* manual expand opcional */ }
-                        )
-
-                        if (expandedOption == option) {
-                            LaunchedEffect(option) { listState.animateScrollToItem(index) }
-                        }
-                    }
-                }
-
-                if (overlayVisible) FullscreenOverlay(onDismiss = { overlayVisible = false })
+            if (overlayVisible) {
+                FullscreenOverlay(onDismiss = { overlayVisible = false })
             }
         }
-
-
-
+    }
 }
