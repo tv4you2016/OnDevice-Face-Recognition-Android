@@ -80,7 +80,7 @@ class PermissionManager(
                 Toast.makeText(activity, "Permissão de ignorar bateria necessária!", Toast.LENGTH_SHORT).show()
                 requestIgnoreBatteryOptimizations()
             } else {
-                requestDeviceAdmin()
+                requestInstallFromUnknownSources();
             }
         }
 
@@ -94,6 +94,8 @@ class PermissionManager(
 
     // Chama todo o fluxo de permissões
     fun requestAll() {
+        requestInstallFromUnknownSources()
+
         if (!hasAllPermissions()) {
             permissionsLauncher.launch(requiredPermissions)
         } else {
@@ -127,7 +129,8 @@ class PermissionManager(
             }
             ignoreBatteryLauncher.launch(intent)
         } else {
-            requestDeviceAdmin()
+            //requestDeviceAdmin()
+            requestInstallFromUnknownSources();
         }
     }
 
@@ -138,6 +141,21 @@ class PermissionManager(
             putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, "Permita para desligar o ecrã")
         }
         deviceAdminLauncher.launch(intent)
+    }
+
+    // Nova função para verificar e solicitar permissão para instalar pacotes de fontes desconhecidas
+    private fun requestInstallFromUnknownSources() {
+        // Verifique se o dispositivo já tem permissão para instalar de fontes desconhecidas
+        if (!activity.packageManager.canRequestPackageInstalls()) {
+            // Solicitar ao usuário que permita a instalação de fontes desconhecidas
+            val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                data = Uri.parse("package:${activity.packageName}")
+            }
+            activity.startActivityForResult(intent, 1234) // 1234 é um código de solicitação arbitrário
+        } else {
+            // Se já tiver permissão, prossiga com a instalação do APK
+            onAllPermissionsGranted()
+        }
     }
 
     fun logPermissionStates() {

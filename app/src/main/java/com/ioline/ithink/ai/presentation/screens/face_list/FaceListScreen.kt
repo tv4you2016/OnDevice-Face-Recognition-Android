@@ -16,6 +16,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -24,8 +25,6 @@ import androidx.compose.ui.unit.sp
 import com.ioline.ithink.ai.R
 import com.ioline.ithink.ai.data.PersonRecord
 import org.koin.androidx.compose.koinViewModel
-import androidx.compose.ui.res.pluralStringResource
-
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,7 +33,6 @@ fun FaceListScreen(
 ) {
     val viewModel: FaceListScreenViewModel = koinViewModel()
 
-    // ✅ Lemos a lista de faces aqui uma vez
     val faces by viewModel.personFlow.collectAsState(emptyList())
     val userCount = faces.size
 
@@ -49,18 +47,19 @@ fun FaceListScreen(
             .fillMaxWidth()
             .padding(top = 8.dp)
     ) {
+        // Botão principal: Adicionar utilizador
         AddFaceHeader(onAddFaceClick)
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(12.dp))
 
+        // Container da lista
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .border(2.dp, Color.Gray, RoundedCornerShape(12.dp))
-                .background(Color(0xFF1A1A1A), RoundedCornerShape(12.dp))
-                .padding(vertical = 12.dp, horizontal = 8.dp),
+                .border(1.dp, Color(0xFF666666), RoundedCornerShape(16.dp))
+                .background(Color(0xFF151515), RoundedCornerShape(16.dp))
+                .padding(vertical = 12.dp, horizontal = 12.dp),
         ) {
-            // ✅ Título profissional com número de utilizadores
             Text(
                 text = userListTitle,
                 style = MaterialTheme.typography.titleMedium.copy(
@@ -68,7 +67,7 @@ fun FaceListScreen(
                     fontWeight = FontWeight.SemiBold
                 ),
                 color = Color.White,
-                modifier = Modifier.padding(vertical = 12.dp, horizontal = 8.dp),
+                modifier = Modifier.padding(bottom = 8.dp),
             )
 
             ScreenUI(
@@ -83,27 +82,26 @@ fun FaceListScreen(
 private fun AddFaceHeader(
     onAddFaceClick: () -> Unit
 ) {
-    Row(
+    Button(
+        onClick = onAddFaceClick,
         modifier = Modifier
-            .fillMaxWidth()
-            .border(2.dp, Color.Gray, RoundedCornerShape(12.dp))
-            .background(Color(0xFF1A1A1A), RoundedCornerShape(12.dp))
-            .clickable { onAddFaceClick() }
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = stringResource(id = R.string.add_faces),
-            style = MaterialTheme.typography.titleMedium,
-            color = Color.White,
-            modifier = Modifier.weight(1f)
+            .fillMaxWidth(),
+        shape = RoundedCornerShape(999.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color(0xFFff931e),
+            contentColor = Color.Black,
+            disabledContainerColor = Color.Gray,
+            disabledContentColor = Color.LightGray
         )
-
+    ) {
         Icon(
             imageVector = Icons.Default.Add,
-            contentDescription = stringResource(id = R.string.add_faces),
-            tint = Color.White,
-            modifier = Modifier.size(28.dp)
+            contentDescription = stringResource(id = R.string.add_faces)
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = stringResource(id = R.string.add_faces),
+            style = MaterialTheme.typography.titleMedium
         )
     }
 }
@@ -114,13 +112,12 @@ private fun EmptyFacesUI() {
         modifier = Modifier
             .fillMaxWidth()
             .background(Color(0xFF1A1A1A), RoundedCornerShape(12.dp))
+            .padding(vertical = 16.dp, horizontal = 12.dp)
     ) {
         Text(
             text = stringResource(id = R.string.no_faces),
             color = Color.White,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 12.dp, horizontal = 8.dp),
+            modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center,
             style = MaterialTheme.typography.bodyLarge
         )
@@ -134,29 +131,24 @@ private fun ScreenUI(
 ) {
     val listState = rememberLazyListState()
 
-    Box(
+    if (faces.isEmpty()) {
+        EmptyFacesUI()
+        return
+    }
+
+    LazyColumn(
+        state = listState,
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 120.dp, max = 300.dp)
-            .border(1.dp, Color.Gray, RoundedCornerShape(12.dp))
-            .background(Color(0xFF1A1A1A), RoundedCornerShape(12.dp))
+            .heightIn(min = 120.dp, max = 260.dp),
+        contentPadding = PaddingValues(vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            if (faces.isEmpty()) {
-                item { EmptyFacesUI() }
-            } else {
-                items(faces) { face ->
-                    FaceListItem(
-                        personRecord = face,
-                        onRemoveFaceClick = { onRemoveFace(face.personID) }
-                    )
-                }
-            }
+        items(faces) { face ->
+            FaceListItem(
+                personRecord = face,
+                onRemoveFaceClick = { onRemoveFace(face.personID) }
+            )
         }
     }
 }
@@ -168,48 +160,54 @@ private fun FaceListItem(
 ) {
     var showDialog by remember { mutableStateOf(false) }
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color(0xFF1A1A1A), RoundedCornerShape(12.dp))
-            .border(1.dp, Color.Gray, RoundedCornerShape(12.dp))
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color(0xFF222222),
+        shape = RoundedCornerShape(12.dp),
+        tonalElevation = 2.dp,
+        shadowElevation = 2.dp
     ) {
-        Text(
-            text = personRecord.personName,
-            style = MaterialTheme.typography.bodyLarge,
-            fontSize = 16.sp,
-            color = Color.White,
-            modifier = Modifier.weight(1f)
-        )
-
-        Icon(
-            imageVector = Icons.Default.Clear,
-            contentDescription = "Remove ${personRecord.personName}",
-            tint = Color.Red,
+        Row(
             modifier = Modifier
-                .size(24.dp)
-                .clickable { showDialog = true }
-        )
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = personRecord.personName,
+                style = MaterialTheme.typography.bodyLarge,
+                fontSize = 16.sp,
+                color = Color.White,
+                modifier = Modifier.weight(1f)
+            )
+
+            Icon(
+                imageVector = Icons.Default.Clear,
+                contentDescription = "Remove ${personRecord.personName}",
+                tint = Color(0xFFFF6B6B),
+                modifier = Modifier
+                    .size(24.dp)
+                    .clickable { showDialog = true }
+            )
+        }
     }
 
     if (showDialog) {
         AlertDialog(
             onDismissRequest = { showDialog = false },
-            title = { Text("Remove person") },
-            text = { Text("Are you sure you want to remove ${personRecord.personName}?") },
+            title = { Text("Remover utilizador") },
+            text = { Text("Tens a certeza que queres remover ${personRecord.personName}?") },
             confirmButton = {
                 TextButton(onClick = {
                     onRemoveFaceClick()
                     showDialog = false
                 }) {
-                    Text("Remove", color = Color.Red)
+                    Text("Remover", color = Color(0xFFFF6B6B))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDialog = false }) {
-                    Text("Cancel", color = Color.White)
+                    Text("Cancelar", color = Color.White)
                 }
             },
             containerColor = Color(0xFF1E1E1E),

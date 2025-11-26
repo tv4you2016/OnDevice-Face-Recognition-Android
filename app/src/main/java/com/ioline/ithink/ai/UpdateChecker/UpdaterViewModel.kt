@@ -1,0 +1,272 @@
+package com.ioline.ithink.ai.UpdateChecker
+
+import android.app.Application
+import android.app.DownloadManager
+import android.app.PendingIntent
+import android.app.admin.DevicePolicyManager
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageInstaller
+import android.net.Uri
+import android.os.Build
+import android.os.Environment
+import android.provider.Settings
+import androidx.core.content.ContextCompat.getSystemService
+import androidx.core.content.FileProvider
+import androidx.core.net.toUri
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.ioline.ithink.ai.MyDeviceAdminReceiver
+import com.ioline.ithink.ai.R
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.FileInputStream
+
+data class UpdaterUiState(
+    val latestVersionName: String = "",
+    val isDownloading: Boolean = false,
+    val progress: Int = 0,
+    val statusText: String = "",
+    val buttonEnabled: Boolean = true
+)
+
+class UpdaterViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val appContext = application.applicationContext
+
+    private var downloadId: Long = -1L
+    private var downloadManager: DownloadManager? = null
+
+    private val _uiState = MutableStateFlow(UpdaterUiState())
+    val uiState = _uiState.asStateFlow()
+
+    fun setLatestVersionName(name: String) {
+        _uiState.update { it.copy(latestVersionName = name) }
+    }
+
+    fun startUpdate(apkUrl: String) {
+        if (apkUrl.isBlank()) {
+            _uiState.update {
+                it.copy(
+                    statusText = "URL inválida",
+                    buttonEnabled = true,
+                    isDownloading = false
+                )
+            }
+            return
+        }
+
+        val dm = appContext.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+        downloadManager = dm
+
+        // Limpa Downloads
+        val downloadDir =
+            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        downloadDir.listFiles()?.forEach { file ->
+            runCatching { file.delete() }
+        }
+
+        val apkName = apkUrl.substringAfterLast("/")
+
+        val request = DownloadManager.Request(Uri.parse(apkUrl))
+            .setTitle(appContext.getString(R.string.download_update))
+            .setDescription(appContext.getString(R.string.reload_page))
+            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
+            .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, apkName)
+
+        downloadId = dm.enqueue(request)
+
+        _uiState.update {
+            it.copy(
+                isDownloading = true,
+                buttonEnabled = false,
+                progress = 0,
+                statusText = "0%"
+            )
+        }
+
+        // Monitorizar progresso
+        viewModelScope.launch(Dispatchers.IO) {
+            var downloading = true
+            while (downloading) {
+                val query = DownloadManager.Query().setFilterById(downloadId)
+                val cursor = dm.query(query)
+
+                cursor?.use { c ->
+                    if (c.moveToFirst()) {
+                        val bytesDownloaded = c.getLong(
+                            c.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
+                        )
+                        val bytesTotal = c.getLong(
+                            c.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)
+                        )
+
+                        if (bytesTotal > 0L) {
+                            val progress =
+                                ((bytesDownloaded * 100L) / bytesTotal).toInt().coerceIn(0, 100)
+                            _uiState.update { state ->
+                                state.copy(
+                                    progress = progress,
+                                    statusText = "$progress%"
+                                )
+                            }
+                        }
+
+                        when (c.getInt(c.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))) {
+                            DownloadManager.STATUS_SUCCESSFUL -> {
+                                downloading = false
+
+                                _uiState.update { state ->
+                                    state.copy(
+                                        progress = 100,
+                                        statusText = "Install",
+                                        isDownloading = false
+                                    )
+                                }
+
+                                val apkFile = File(
+                                    Environment.getExternalStoragePublicDirectory(
+                                        Environment.DIRECTORY_DOWNLOADS
+                                    ),
+                                    apkName
+                                )
+
+                                // Remover a app como administradora de dispositivo
+                                val devicePolicyManager = appContext.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+                                val componentName = ComponentName(appContext, MyDeviceAdminReceiver::class.java)
+
+                                if (devicePolicyManager.isAdminActive(componentName)) {
+                                    devicePolicyManager.removeActiveAdmin(componentName)
+                                }
+
+                                // Instalação (device owner / root / prompt)
+                                installApkSmart(apkFile)
+                            }
+
+                            DownloadManager.STATUS_FAILED -> {
+                                downloading = false
+                                _uiState.update { state ->
+                                    state.copy(
+                                        statusText = "Download Fail",
+                                        isDownloading = false,
+                                        buttonEnabled = true
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                delay(500L)
+            }
+        }
+    }
+
+    // --- INSTALAÇÃO AUTOMÁTICA INTELIGENTE ---
+    private fun installApkSmart(apkFile: File) {
+        when {
+            isDeviceOwner() -> installApkDeviceOwner(apkFile)
+            isRootAvailable() -> silentInstallRoot(apkFile)
+            else -> showInstallPrompt(apkFile)
+        }
+    }
+
+    // --- Device Owner ---
+    private fun isDeviceOwner(): Boolean {
+        val dpm =
+            appContext.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
+        return dpm.isDeviceOwnerApp(appContext.packageName)
+    }
+
+    private fun installApkDeviceOwner(apkFile: File) {
+        if (!apkFile.exists()) return
+
+        val packageInstaller = appContext.packageManager.packageInstaller
+        val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
+        val sessionId = packageInstaller.createSession(params)
+        val session = packageInstaller.openSession(sessionId)
+
+        FileInputStream(apkFile).use { input ->
+            session.openWrite("apk", 0, apkFile.length()).use { out ->
+                input.copyTo(out)
+                session.fsync(out)
+            }
+        }
+
+        val intent = Intent()
+        val sender = PendingIntent.getBroadcast(
+            appContext,
+            0,
+            intent,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+                PendingIntent.FLAG_MUTABLE
+            else
+                0
+        ).intentSender
+
+        session.commit(sender)
+        session.close()
+    }
+
+    // --- Root ---
+    private fun isRootAvailable(): Boolean {
+        val paths = listOf(
+            "/system/xbin/su",
+            "/system/bin/su",
+            "/sbin/su"
+        )
+        return paths.any { File(it).exists() }
+    }
+
+    private fun silentInstallRoot(apkFile: File): Boolean {
+        if (!apkFile.exists()) return false
+
+        return try {
+            val cmd = arrayOf("su", "0", "pm", "install", "-r", apkFile.absolutePath)
+            val process = Runtime.getRuntime().exec(cmd)
+            val exitCode = process.waitFor()
+            if (exitCode != 0) {
+                showInstallPrompt(apkFile)
+            }
+            exitCode == 0
+        } catch (e: Exception) {
+            e.printStackTrace()
+            showInstallPrompt(apkFile)
+            false
+        }
+    }
+
+    // --- Fallback Prompt + Permissão apps desconhecidos ---
+    private fun showInstallPrompt(apkFile: File) {
+        if (!apkFile.exists()) return
+
+        viewModelScope.launch(Dispatchers.Main) {
+            if (!appContext.packageManager.canRequestPackageInstalls()) {
+                val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES)
+                    .setData("package:${appContext.packageName}".toUri())
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                appContext.startActivity(intent)
+                return@launch
+            }
+
+            val apkUri: Uri = FileProvider.getUriForFile(
+                appContext,
+                "${appContext.packageName}.provider",
+                apkFile
+            )
+
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(apkUri, "application/vnd.android.package-archive")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            appContext.startActivity(intent)
+        }
+    }
+}

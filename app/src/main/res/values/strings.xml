@@ -16,4 +16,9 @@
     <string name="camera_movement">Camera movement</string>
     <string name="none_power_button">None (Power Button)</string>
 
+    <string name="update_available">Update Available</string>
+    <string name="download_update">Downloading update</string>
+    <string name="reload_page">Loading content...</string>
+    <string name="update">Atualizar</string>
+    <string name="update_cancel">Cancelar</string>
 </resources>

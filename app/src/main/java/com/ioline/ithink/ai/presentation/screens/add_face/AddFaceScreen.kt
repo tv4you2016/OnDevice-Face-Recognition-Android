@@ -16,8 +16,6 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -205,9 +203,6 @@ private fun ScreenUI(viewModel: AddFaceScreenViewModel) {
     // Controle para exibir a tela da câmera frontal
     var showCamera by remember { mutableStateOf(false) }
 
-    val interactionSource = remember { MutableInteractionSource() }
-    val isFocused by interactionSource.collectIsFocusedAsState()
-
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
@@ -229,106 +224,111 @@ private fun ScreenUI(viewModel: AddFaceScreenViewModel) {
                     }
                 )
             } else {
-                TextField(
+
+                // 🔶 CARD PRINCIPAL DO FORMULÁRIO
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .border(
-                            width = 2.dp,
-                            color = if (isFocused) colorResource(id = R.color.md_orange) else Color.Gray,
-                            shape = RoundedCornerShape(12.dp)
-                        )
-                        .background(Color.Transparent, RoundedCornerShape(12.dp))
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    value = personName,
-                    onValueChange = { personName = it },
-                    label = { Text(text = "Enter the person's name") },
-                    singleLine = true,
-                    interactionSource = interactionSource,
-                    colors = TextFieldDefaults.colors(
-                        unfocusedLabelColor = Color.White,
-                        focusedLabelColor = Color.White,
-                        focusedContainerColor = Color.Black,
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        unfocusedContainerColor = Color.Black,
-                        unfocusedIndicatorColor = Color.White,
-                        focusedIndicatorColor = Color.White,
-                        cursorColor = Color.White
-                    ),
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(2.dp, Color.Gray, RoundedCornerShape(12.dp))
-                        .background(Color(0xFF1A1A1A), RoundedCornerShape(12.dp))
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
+                        .border(1.dp, Color.Gray, RoundedCornerShape(16.dp))
+                        .background(Color(0xFF151515), RoundedCornerShape(16.dp))
+                        .padding(16.dp)
                 ) {
+                    // 🔹 Campo de nome sem “3 linhas”
+                    OutlinedTextField(
+                        modifier = Modifier.fillMaxWidth(),
+                        value = personName,
+                        onValueChange = { personName = it },
+                        label = { Text(text = "Enter the person's name") },
+                        singleLine = true,
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Black,
+                            unfocusedContainerColor = Color.Black,
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedIndicatorColor = colorResource(id = R.color.md_orange),
+                            unfocusedIndicatorColor = Color.Gray,
+                            focusedLabelColor = Color.White,
+                            unfocusedLabelColor = Color.LightGray,
+                            cursorColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
                     val canInteract = personName.isNotEmpty()
 
-                    // Botão galeria
-                    Button(
-                        enabled = canInteract,
-                        onClick = {
-                            focusManager.clearFocus()
-                            keyboardController?.hide()
-                            pickVisualMediaLauncher.launch(
-                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                    // 🔹 Botões Choose / Take
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Button(
+                            enabled = canInteract,
+                            onClick = {
+                                focusManager.clearFocus()
+                                keyboardController?.hide()
+                                pickVisualMediaLauncher.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                )
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(999.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = colorResource(id = R.color.md_orange),
+                                contentColor = Color.Black,
+                                disabledContainerColor = Color.Gray,
+                                disabledContentColor = Color.LightGray
                             )
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = colorResource(id = R.color.md_orange),
-                            contentColor = Color.White,
-                            disabledContainerColor = Color.Gray,
-                            disabledContentColor = Color.LightGray
-                        )
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Photo,
-                            contentDescription = "Choose photos"
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(text = "Choose photos")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Photo,
+                                contentDescription = "Choose photos"
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(text = "Choose photos")
+                        }
+
+                        Button(
+                            enabled = canInteract,
+                            onClick = {
+                                focusManager.clearFocus()
+                                keyboardController?.hide()
+                                showCamera = true
+                            },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(999.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = colorResource(id = R.color.md_orange),
+                                contentColor = Color.Black,
+                                disabledContainerColor = Color.Gray,
+                                disabledContentColor = Color.LightGray
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Camera,
+                                contentDescription = "Take Photo"
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(text = "Take Photo")
+                        }
                     }
 
-                    // Botão câmera frontal
-                    Button(
-                        enabled = canInteract,
-                        onClick = {
-                            focusManager.clearFocus()
-                            keyboardController?.hide()
-                            showCamera = true
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = colorResource(id = R.color.md_orange),
-                            contentColor = Color.White,
-                            disabledContainerColor = Color.Gray,
-                            disabledContentColor = Color.LightGray
-                        )
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Camera,
-                            contentDescription = "Take Photo"
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(text = "Take Photo")
-                    }
-
-                    // Botão adicionar imagens (sem animação extra)
+                    // 🔹 Botão “Add User” aparece só se houver imagens
                     val hasImages = viewModel.selectedImageURIs.value.isNotEmpty()
                     if (hasImages) {
+                        Spacer(modifier = Modifier.height(16.dp))
                         Button(
                             onClick = {
                                 focusManager.clearFocus()
                                 keyboardController?.hide()
                                 viewModel.addImages()
                             },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(999.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = colorResource(id = R.color.md_orange),
-                                contentColor = Color.White,
+                                contentColor = Color.Black,
                                 disabledContainerColor = Color.Gray,
                                 disabledContentColor = Color.LightGray
                             )
@@ -337,7 +337,7 @@ private fun ScreenUI(viewModel: AddFaceScreenViewModel) {
                                 imageVector = Icons.Default.Add,
                                 contentDescription = "Add photos"
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
                             Text(text = stringResource(id = R.string.add_faces))
                         }
                     }

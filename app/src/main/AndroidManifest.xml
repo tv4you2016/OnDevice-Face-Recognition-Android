@@ -22,6 +22,7 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
     <uses-permission android:name="android.permission.ACTION_MANAGE_OVERLAY_PERMISSION"/>
     <uses-permission android:name="android.permission.TURN_SCREEN_ON"/>
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
 
     <!-- Para Android <= 32 -->
@@ -50,7 +51,19 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.FaceNetAndroid"
-        tools:targetApi="31">
+        tools:targetApi="31"
+        android:usesCleartextTraffic="true">
+        >
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.provider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
         <service
             android:name=".PeriodicAppLauncherService"
@@ -91,39 +104,50 @@
             </intent-filter>
         </activity>
 
-        <receiver
-            android:name=".MyDeviceAdminReceiver"
-            android:exported="true"
-            android:permission="android.permission.BIND_DEVICE_ADMIN">
-            <meta-data
-                android:name="android.app.device_admin"
-                android:resource="@xml/device_admin_receiver" />
-            <intent-filter>
-                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
-            </intent-filter>
-        </receiver>
 
-        <receiver
-            android:name=".BootReceiver"
-            android:enabled="true"
-            android:exported="true"
-            android:permission="android.permission.RECEIVE_BOOT_COMPLETED">
-            <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
-            </intent-filter>
-        </receiver>
+        <activity
+            android:name=".UpdateChecker.UpdaterActivity"
+            android:exported="false" />
 
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.provider"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths" />
-        </provider>
+        <!--
+                <receiver
+                    android:name=".MyDeviceAdminReceiver"
+                    android:exported="true"
+                    android:permission="android.permission.BIND_DEVICE_ADMIN">
+                    <meta-data
+                        android:name="android.app.device_admin"
+                        android:resource="@xml/device_admin_receiver" />
+                    <intent-filter>
+                        <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+                    </intent-filter>
+                </receiver>
+      -->
 
-    </application>
 
-</manifest>
+
+                <receiver
+                    android:name=".BootReceiver"
+                    android:enabled="true"
+                    android:exported="true"
+                    android:permission="android.permission.RECEIVE_BOOT_COMPLETED">
+                    <intent-filter>
+                        <action android:name="android.intent.action.BOOT_COMPLETED" />
+                        <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+                    </intent-filter>
+                </receiver>
+
+                <provider
+                    android:name="androidx.core.content.FileProvider"
+                    android:authorities="${applicationId}.provider"
+                    android:exported="false"
+                    android:grantUriPermissions="true">
+                    <meta-data
+                        android:name="android.support.FILE_PROVIDER_PATHS"
+                        android:resource="@xml/file_paths" />
+                </provider>
+
+            </application>
+
+
+
+        </manifest>
