@@ -37,6 +37,7 @@ import androidx.core.net.toUri
 import com.ioline.ithink.ai.layout.Option
 import com.ioline.ithink.ai.layout.startServiceIfNeeded
 import com.ioline.ithink.ai.settingsdatastore.SettingsDataStore
+import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.flow.first
 
@@ -50,6 +51,7 @@ object AppUtils {
     }
 
     // --- Função para abrir Play Store ---
+    @OptIn(DelicateCoroutinesApi::class)
     private fun openPlayStore(context: Context, packageName: String) {
 
         if (isPlayStoreRunning(context)) {
@@ -95,6 +97,7 @@ object AppUtils {
         return isRunning
     }
     
+    @OptIn(DelicateCoroutinesApi::class)
     fun openTargetAppSafe(context: Context, packageName: String, wakeLock: Boolean = true) {
         if (isAppRunning(context, packageName)) {
             Log.d("AppUtils", "O app $packageName já está rodando, não será aberto novamente.")

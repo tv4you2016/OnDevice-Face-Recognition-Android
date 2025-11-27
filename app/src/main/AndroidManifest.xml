@@ -107,7 +107,12 @@
 
         <activity
             android:name=".UpdateChecker.UpdaterActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:excludeFromRecents="true"
+
+            />
 
         <!--
                 <receiver
@@ -123,7 +128,13 @@
                 </receiver>
       -->
 
-
+                <receiver android:name=".UpdateChecker.ApkInstallReceiver"
+                    android:exported="true">
+                    <intent-filter>
+                        <action android:name="android.intent.action.PACKAGE_ADDED" />
+                        <data android:scheme="package"/>
+                    </intent-filter>
+                </receiver>
 
                 <receiver
                     android:name=".BootReceiver"

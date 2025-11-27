@@ -61,6 +61,9 @@ class MainActivity : ComponentActivity() {
                 ) {
                     composable("main_layout") {
                         val context = LocalContext.current
+
+
+                        //checkForUpdates(context,false)
                         scheduleDailyUpdateCheck(context)
 
 

@@ -7,8 +7,15 @@ import androidx.work.WorkManager
 import java.util.concurrent.TimeUnit
 
 fun scheduleDailyUpdateCheck(context: Context) {
+/*
     val workRequest = PeriodicWorkRequestBuilder<CheckUpdateWorker>(
         8, TimeUnit.HOURS
+    ).build()
+
+*/
+
+    val workRequest = PeriodicWorkRequestBuilder<CheckUpdateWorker>(
+        15, TimeUnit.MINUTES
     ).build()
 
     WorkManager.getInstance(context)

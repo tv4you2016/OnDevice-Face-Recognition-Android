@@ -3,6 +3,7 @@ package com.ioline.ithink.ai.UpdateChecker
 
 import android.os.Bundle
 import android.util.Log
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,6 +24,13 @@ class UpdaterActivity : ComponentActivity() {
         val apkUrl = intent.getStringExtra("apkUrl") ?: ""
         val latestVersionName = intent.getStringExtra("latestVersionName") ?: ""
 
+
+        window.addFlags(
+            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
+                    WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+                    WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                    WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
+        )
 
         setContent {
             // Usa o teu theme aqui, se tiveres (ex: FaceNetAndroidTheme / MordomusTheme)

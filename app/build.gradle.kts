@@ -14,8 +14,8 @@ android {
         applicationId = "com.ioline.ithink.ai"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.0.1"
+        versionCode = 2
+        versionName = "0.0.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -135,11 +135,11 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.datastore.core)
     implementation(libs.kotlinx.serialization.json)
-    implementation("androidx.work:work-runtime-ktx:2.8.1")
-    implementation("androidx.compose.material3:material3:1.2.0")
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.compose.material3)
 
-    implementation("com.squareup.retrofit2:retrofit:3.0.0")
-    implementation("com.squareup.retrofit2:converter-gson:3.0.0")
+    implementation(libs.retrofit)
+    implementation(libs.converter.gson)
 }
 
 apply(plugin = "io.objectbox")

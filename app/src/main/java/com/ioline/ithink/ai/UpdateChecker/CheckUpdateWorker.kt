@@ -2,7 +2,10 @@ package com.ioline.ithink.ai.UpdateChecker
 
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.util.Log
+import androidx.annotation.RequiresApi
+import androidx.compose.ui.platform.LocalContext
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 
@@ -11,6 +14,7 @@ class CheckUpdateWorker(
     workerParams: WorkerParameters
 ) : CoroutineWorker(context, workerParams) {
 
+    @RequiresApi(Build.VERSION_CODES.P)
     override suspend fun doWork(): Result {
         return try {
             // Pega o versionCode atual
@@ -29,12 +33,15 @@ class CheckUpdateWorker(
                     is UpdateResult.UpdateAvailable -> {
                         Log.d("CheckUpdateWorker", "Há update disponível!")
 
+
                         // 🔔 Aqui o ideal é mandar uma notificação (melhor UX)
                         // Se quiseres mesmo abrir a Activity:
                         val intent = Intent(applicationContext, UpdaterActivity::class.java).apply {
                             putExtra("apkUrl", updateResult.url)
                             putExtra("latestVersionName", updateResult.version)
                             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                            addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
                         }
                         applicationContext.startActivity(intent)
                     }
