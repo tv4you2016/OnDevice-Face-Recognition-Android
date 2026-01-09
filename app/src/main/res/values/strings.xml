@@ -19,6 +19,12 @@
     <string name="update_available">Update Available</string>
     <string name="download_update">Downloading update</string>
     <string name="reload_page">Loading content...</string>
-    <string name="update">Atualizar</string>
-    <string name="update_cancel">Cancelar</string>
+    <string name="update">Update</string>
+    <string name="cancel">Cancel</string>
+    <string name="save_user">New user saved</string>
+    <string name="UserAdded">Save new user</string>
+    <string name="confirm_remove">Remove user  %1$s</string>
+    <string name="remove">Remove</string>
+
+
 </resources>

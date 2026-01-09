@@ -20,6 +20,9 @@ import com.ioline.ithink.ai.UpdateChecker.UpdateChecker
 import com.ioline.ithink.ai.UpdateChecker.UpdateResult
 import com.ioline.ithink.ai.UpdateChecker.UpdaterActivity
 import com.ioline.ithink.ai.UpdateChecker.scheduleDailyUpdateCheck
+import com.ioline.ithink.ai.presentation.components.CameraService
+import com.ioline.ithink.ai.presentation.components.FaceDetectionService
+import com.ioline.ithink.ai.presentation.components.ProximityService
 
 import com.ioline.ithink.ai.settingsdatastore.SettingsDataStore
 import kotlinx.coroutines.flow.first
@@ -119,4 +122,19 @@ class MainActivity : ComponentActivity() {
         return isUpdateAvailable  // Retorna o valor booleano
     }
 
+
+    override fun onResume() {
+        super.onResume()
+        // Código aqui
+
+
+        FaceDetectionService.stop(this@MainActivity)
+        this@MainActivity.stopService(Intent(this@MainActivity, CameraService::class.java))
+        this@MainActivity.stopService(Intent(this@MainActivity, ProximityService::class.java))
+
+    }
 }
+
+
+// falta no restore da app quando esta minimizada
+

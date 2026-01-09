@@ -196,18 +196,28 @@ private fun FaceListItem(
         AlertDialog(
             onDismissRequest = { showDialog = false },
             title = { Text("Remover utilizador") },
-            text = { Text("Tens a certeza que queres remover ${personRecord.personName}?") },
+            text = {
+                Text(
+                    text = stringResource(
+                        id = R.string.confirm_remove,
+                        personRecord.personName
+                    )
+                )
+            },
+
+
+            //text = { Text("Tens a certeza que queres remover ${personRecord.personName}?") },
             confirmButton = {
                 TextButton(onClick = {
                     onRemoveFaceClick()
                     showDialog = false
                 }) {
-                    Text("Remover", color = Color(0xFFFF6B6B))
+                    Text(stringResource(id= R.string.remove) , color = Color(0xFFFF6B6B))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDialog = false }) {
-                    Text("Cancelar", color = Color.White)
+                    Text(stringResource(id= R.string.cancel), color = Color.White)
                 }
             },
             containerColor = Color(0xFF1E1E1E),

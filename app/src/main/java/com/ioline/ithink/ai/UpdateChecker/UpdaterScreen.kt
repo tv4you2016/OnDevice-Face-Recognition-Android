@@ -111,7 +111,7 @@ fun UpdaterScreen(
                         contentColor = Color.White
                     )
                 ) {
-                    Text(stringResource(R.string.update_cancel))
+                    Text(stringResource(R.string.cancel))
                 }
 
                 Button(

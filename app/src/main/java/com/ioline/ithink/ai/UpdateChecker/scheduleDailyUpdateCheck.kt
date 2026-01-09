@@ -15,7 +15,7 @@ fun scheduleDailyUpdateCheck(context: Context) {
 */
 
     val workRequest = PeriodicWorkRequestBuilder<CheckUpdateWorker>(
-        15, TimeUnit.MINUTES
+        8, TimeUnit.HOURS
     ).build()
 
     WorkManager.getInstance(context)

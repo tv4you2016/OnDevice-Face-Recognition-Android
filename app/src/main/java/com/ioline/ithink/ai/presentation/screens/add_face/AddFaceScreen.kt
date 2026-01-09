@@ -333,12 +333,15 @@ private fun ScreenUI(viewModel: AddFaceScreenViewModel) {
                                 disabledContentColor = Color.LightGray
                             )
                         ) {
+                            /*
                             Icon(
                                 imageVector = Icons.Default.Add,
                                 contentDescription = "Add photos"
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text(text = stringResource(id = R.string.add_faces))
+                            */
+                            Text(text = stringResource(id = R.string.UserAdded))
+
                         }
                     }
                 }
@@ -395,7 +398,7 @@ private fun ImageReadProgressDialog(
             viewModel.clearState()
             Toast.makeText(
                 context,
-                stringResource(id = R.string.add_facesOK),
+                stringResource(id = R.string.save_user),
                 Toast.LENGTH_SHORT
             ).show()
             onNavigateBack()
