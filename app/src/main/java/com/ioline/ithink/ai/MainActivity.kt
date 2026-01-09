@@ -138,3 +138,6 @@ class MainActivity : ComponentActivity() {
 
 // take the photo
 
+
+// colocar um texto que informa o user de que quanto mais photos melhor
+

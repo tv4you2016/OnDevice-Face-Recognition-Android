@@ -407,7 +407,7 @@ fun MainLayout(
                             } finally {
                                 AppUtils.stopLoading(context, "openTargetApp")
                             }
-                            
+
  */
                         }
                     },
