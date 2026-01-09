@@ -42,7 +42,8 @@ import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.flow.first
 
 object AppUtils {
-
+    @Volatile
+    var isAddUserFlowActive: Boolean = false
 
     fun isPlayStoreRunning(context: Context): Boolean {
         val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager

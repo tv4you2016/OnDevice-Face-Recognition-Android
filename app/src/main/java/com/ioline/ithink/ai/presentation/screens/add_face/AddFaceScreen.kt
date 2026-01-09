@@ -44,6 +44,12 @@ import com.ioline.ithink.ai.presentation.components.hideProgressDialog
 import com.ioline.ithink.ai.presentation.components.showProgressDialog
 import org.koin.androidx.compose.koinViewModel
 import androidx.activity.compose.BackHandler
+import androidx.camera.core.ExperimentalGetImage
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.ioline.ithink.ai.AppUtils
+import com.ioline.ithink.ai.presentation.components.FaceDetectionService
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -53,6 +59,16 @@ fun AddFaceScreen(
     cameraOpenState: MutableState<Boolean>
 ) {
     val viewModel: AddFaceScreenViewModel = koinViewModel()
+
+    LaunchedEffect(Unit) {
+        AppUtils.isAddUserFlowActive = true
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            AppUtils.isAddUserFlowActive = false
+        }
+    }
 
     // Limpa o estado apenas UMA vez ao abrir a tela
     LaunchedEffect(Unit) {
@@ -121,13 +137,13 @@ private fun takePhoto(
         }
     )
 }
-
 @Composable
 fun CameraScreen(
     onPhotoCaptured: (uri: Uri) -> Unit,
 ) {
     val context = LocalContext.current
-    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+
     val previewView = remember { PreviewView(context) }
 
     val imageCapture = remember {
@@ -136,21 +152,28 @@ fun CameraScreen(
             .build()
     }
 
-    LaunchedEffect(Unit) {
-        val cameraProvider = ProcessCameraProvider.getInstance(context).get()
-        val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
+    LaunchedEffect(lifecycleOwner) {
+        val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
 
-        val preview = Preview.Builder().build().apply {
-            setSurfaceProvider(previewView.surfaceProvider)
-        }
+        cameraProviderFuture.addListener({
+            val cameraProvider = cameraProviderFuture.get()
+            val cameraSelector = CameraSelector.DEFAULT_FRONT_CAMERA
 
-        cameraProvider.unbindAll()
-        cameraProvider.bindToLifecycle(
-            lifecycleOwner,
-            cameraSelector,
-            preview,
-            imageCapture
-        )
+            val preview = Preview.Builder().build().apply {
+                setSurfaceProvider(previewView.surfaceProvider)
+            }
+
+            // Liberta o que estiver a usar CameraX neste processo (incl. service)
+            cameraProvider.unbindAll()
+
+            // Binda só o que esta screen precisa
+            cameraProvider.bindToLifecycle(
+                lifecycleOwner,
+                cameraSelector,
+                preview,
+                imageCapture
+            )
+        }, ContextCompat.getMainExecutor(context))
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -173,9 +196,11 @@ fun CameraScreen(
     }
 }
 
+@androidx.annotation.OptIn(ExperimentalGetImage::class)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ScreenUI(viewModel: AddFaceScreenViewModel, cameraOpenState: MutableState<Boolean>) {
+
 
     val context = LocalContext.current
     var personName by viewModel.personNameState
@@ -193,9 +218,16 @@ private fun ScreenUI(viewModel: AddFaceScreenViewModel, cameraOpenState: Mutable
     // Controle para exibir a tela da câmera frontal
     var showCamera by cameraOpenState
 
+    LaunchedEffect(showCamera) {
+        if (showCamera) FaceDetectionService.pauseCamera(context)
+        else FaceDetectionService.resumeCamera(context)
+    }
+
     // ✅ Quando a câmara está aberta, o BACK fecha a câmara (não navega para trás)
     BackHandler(enabled = showCamera) {
         showCamera = false
+        FaceDetectionService.resumeCamera(context)
+
     }
 
     BoxWithConstraints(
@@ -217,10 +249,13 @@ private fun ScreenUI(viewModel: AddFaceScreenViewModel, cameraOpenState: Mutable
                         viewModel.selectedImageURIs.value =
                             viewModel.selectedImageURIs.value + uri
                         showCamera = false
+                        FaceDetectionService.resumeCamera(context)
+
                     }
                 )
             } else {
                 val hasImages = viewModel.selectedImageURIs.value.isNotEmpty()
+                val scope = rememberCoroutineScope()
 
                 if (!hasImages) {
                     // SEM FOTOS: formulário ocupa o ecrã todo
@@ -238,7 +273,11 @@ private fun ScreenUI(viewModel: AddFaceScreenViewModel, cameraOpenState: Mutable
                         onOpenCamera = {
                             focusManager.clearFocus()
                             keyboardController?.hide()
-                            showCamera = true
+                            scope.launch {
+                                FaceDetectionService.pauseCamera(context)
+                                delay(350) // dá tempo para libertar a camera
+                                showCamera = true
+                            }
                         },
                         onAddUser = {
                             focusManager.clearFocus()
@@ -276,7 +315,11 @@ private fun ScreenUI(viewModel: AddFaceScreenViewModel, cameraOpenState: Mutable
                                 onOpenCamera = {
                                     focusManager.clearFocus()
                                     keyboardController?.hide()
-                                    showCamera = true
+                                    scope.launch {
+                                        FaceDetectionService.pauseCamera(context)
+                                        delay(350) // dá tempo para libertar a camera
+                                        showCamera = true
+                                    }
                                 },
                                 onAddUser = {
                                     focusManager.clearFocus()

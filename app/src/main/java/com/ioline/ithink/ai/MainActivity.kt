@@ -27,6 +27,7 @@ import com.ioline.ithink.ai.presentation.components.ProximityService
 import com.ioline.ithink.ai.settingsdatastore.SettingsDataStore
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlin.math.log
 
 //C:\Users\IOLine\Documents\GitHub\OnDevice-Face-Recognition-Android\app\build\outputs\apk\debug
 class MainActivity : ComponentActivity() {
@@ -127,16 +128,14 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         // Código aqui
 
+        if (!AppUtils.isAddUserFlowActive) {
 
-        FaceDetectionService.stop(this@MainActivity)
-        this@MainActivity.stopService(Intent(this@MainActivity, CameraService::class.java))
-        this@MainActivity.stopService(Intent(this@MainActivity, ProximityService::class.java))
-
+            FaceDetectionService.stop(this@MainActivity)
+            this@MainActivity.stopService(Intent(this@MainActivity, CameraService::class.java))
+            this@MainActivity.stopService(Intent(this@MainActivity, ProximityService::class.java))
+        }
     }
 }
-
-
-// take the photo
 
 
 // colocar um texto que informa o user de que quanto mais photos melhor

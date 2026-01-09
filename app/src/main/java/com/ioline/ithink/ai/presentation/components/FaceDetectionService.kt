@@ -26,8 +26,12 @@ import com.ioline.ithink.ai.settingsdatastore.SettingsDataStore
 import kotlinx.coroutines.flow.first
 
 
+
+
 @ExperimentalGetImage
 class FaceDetectionService : Service() {
+
+
 
     private val settingsStore by lazy { SettingsDataStore(this) }
 
@@ -51,13 +55,36 @@ class FaceDetectionService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
 
+
+
     companion object {
+        private const val ACTION_PAUSE_CAMERA = "com.ioline.ithink.ai.action.PAUSE_FACE_CAMERA"
+        private const val ACTION_RESUME_CAMERA = "com.ioline.ithink.ai.action.RESUME_FACE_CAMERA"
+
+        fun pauseCamera(context: Context) {
+            context.startService(Intent(context, FaceDetectionService::class.java).apply {
+                action = ACTION_PAUSE_CAMERA
+            })
+        }
+
+        fun resumeCamera(context: Context) {
+            context.startService(Intent(context, FaceDetectionService::class.java).apply {
+                action = ACTION_RESUME_CAMERA
+            })
+        }
+
         fun stop(context: Context) {
-            val intent = Intent(context, FaceDetectionService::class.java)
-            context.stopService(intent)
+            context.stopService(Intent(context, FaceDetectionService::class.java))
         }
     }
 
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        when (intent?.action) {
+            ACTION_PAUSE_CAMERA -> cameraProvider?.unbindAll()
+            ACTION_RESUME_CAMERA -> startCamera()
+        }
+        return START_STICKY
+    }
 
     override fun onCreate() {
         super.onCreate()
