@@ -3,6 +3,7 @@ package com.ioline.ithink.ai.layout
 
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import androidx.camera.core.ExperimentalGetImage
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -55,6 +56,7 @@ import com.ioline.ithink.ai.settingsdatastore.AppSettings
 import com.ioline.ithink.ai.presentation.components.ProximityService
 import com.ioline.ithink.ai.presentation.components.CameraService
 import com.ioline.ithink.ai.presentation.components.FaceDetectionService
+import kotlinx.coroutines.delay
 
 // APP UTILS
 // Definindo as opções disponíveis
@@ -78,45 +80,41 @@ val settingsOptions = listOf(
 
 
 @androidx.annotation.OptIn(ExperimentalGetImage::class)
-fun startServiceIfNeeded(context: Context, option: Option)
-{
+fun startServiceIfNeeded(context: Context, option: Option) {
+    Log.d("ServiceStart", "startServiceIfNeeded -> $option")
 
-    when (option) {
-/*
-        Option.ProximityDetection -> {
-            FaceDetectionService.stop(context)
-            context.stopService(Intent(context, CameraService::class.java))
+    try {
+        when (option) {
+            Option.CameraDetection -> {
+                FaceDetectionService.stop(context)
+                context.stopService(Intent(context, ProximityService::class.java))
 
-            val intent = Intent(context, ProximityService::class.java)
-            context.startForegroundService(intent)
+                val intent = Intent(context, CameraService::class.java)
+                context.startForegroundService(intent)
+                Log.d("ServiceStart", "CameraService startForegroundService called")
+            }
+
+            Option.FacialDetection -> {
+                context.stopService(Intent(context, ProximityService::class.java))
+                context.stopService(Intent(context, CameraService::class.java))
+
+                val intent = Intent(context, FaceDetectionService::class.java)
+                context.startForegroundService(intent)
+                Log.d("ServiceStart", "FaceDetectionService startForegroundService called")
+            }
+
+            Option.None -> {
+                FaceDetectionService.stop(context)
+                context.stopService(Intent(context, CameraService::class.java))
+                context.stopService(Intent(context, ProximityService::class.java))
+                Log.d("ServiceStart", "All services stopped")
+            }
         }
-*/
-        Option.CameraDetection -> {
-            FaceDetectionService.stop(context)
-            context.stopService(Intent(context, ProximityService::class.java))
-
-            val intent = Intent(context, CameraService::class.java)
-            context.startForegroundService(intent)
-        }
-
-        Option.FacialDetection -> {
-            context.stopService(Intent(context, ProximityService::class.java))
-            context.stopService(Intent(context, CameraService::class.java))
-
-            val intent = Intent(context, FaceDetectionService::class.java)
-            context.startForegroundService(intent)
-        }
-
-        Option.None -> {
-            FaceDetectionService.stop(context)
-            context.stopService(Intent(context, CameraService::class.java))
-            context.stopService(Intent(context, ProximityService::class.java))
-
-            AppUtils.stopLoading(context, "Option.None")
-            //AppUtils.startLoading(context, "Option.None")
-        }
+    } catch (t: Throwable) {
+        Log.e("ServiceStart", "FAILED starting service for option=$option", t)
     }
 }
+
 
 
 
@@ -216,7 +214,7 @@ fun SettingItem(
 
 
 @Composable
-fun FullscreenOverlay(onDismiss: () -> Unit) {
+fun FullscreenOverlay(onDismiss: () -> Unit,  cameraOpenState: MutableState<Boolean>) {
     // ❌ sem AnimatedVisibility
     Box(
         modifier = Modifier
@@ -230,7 +228,8 @@ fun FullscreenOverlay(onDismiss: () -> Unit) {
             color = Color.White
         ) {
             AddFaceScreen(
-                onNavigateBack = { onDismiss() }
+                onNavigateBack = { onDismiss() },
+                cameraOpenState = cameraOpenState
             )
         }
     }
@@ -327,12 +326,19 @@ fun MainLayout(
     // Começa com o que já veio do splash/root
     val settings by settingsStore.settingsFlow.collectAsState(initial = initialSettings)
     var currentSettings by remember { mutableStateOf(settings) }
+
+
+
+
     LaunchedEffect(settings) {
         currentSettings = settings
     }
 
     var overlayVisible by remember { mutableStateOf(false) }
     var expandedOption by remember { mutableStateOf<Option?>(currentSettings.detectionType) }
+    val addFaceCameraOpen = remember { mutableStateOf(false) }
+
+
     val coroutineScope = rememberCoroutineScope()
     val listState = rememberLazyListState()
 
@@ -358,7 +364,13 @@ fun MainLayout(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Black),
                 actions = {
                     if (overlayVisible) {
-                        IconButton(onClick = { overlayVisible = false }) {
+                        IconButton(onClick = {
+                            if (addFaceCameraOpen.value) {
+                                addFaceCameraOpen.value = false   // ✅ fecha a câmara primeiro
+                            } else {
+                                overlayVisible = false            // ✅ fecha o overlay
+                            }
+                        }) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = "Navigate Back",
@@ -383,20 +395,20 @@ fun MainLayout(
                     selected = true,
                     onClick = {
                         coroutineScope.launch {
-                            // aqui também podes por o openApk = true
-                            val updated = currentSettings.copy(
-                                OpeniThink = currentSettings.OpeniThink.copy(openApk = true)
-                            )
-                            settingsStore.saveSettings(updated)
-                        }
+                            startServiceIfNeeded(context, currentSettings.detectionType)
+/*
+                            delay(1000) // ✅ agora funciona
 
-                        AppUtils.startLoading(context, "openTargetApp")
-                        try {
-                            WakeLock().wakeUpScreen(context)
-                            WakeLock().unlockScreen(context)
-                            openTargetAppSafe(context, "app.ioline.ithink")
-                        } finally {
-                            AppUtils.stopLoading(context, "openTargetApp")
+                            AppUtils.startLoading(context, "openTargetApp")
+                            try {
+                                WakeLock().wakeUpScreen(context)
+                                WakeLock().unlockScreen(context)
+                                openTargetAppSafe(context, "app.ioline.ithink")
+                            } finally {
+                                AppUtils.stopLoading(context, "openTargetApp")
+                            }
+                            
+ */
                         }
                     },
                     colors = NavigationBarItemDefaults.colors(
@@ -467,7 +479,15 @@ fun MainLayout(
             }
 
             if (overlayVisible) {
-                FullscreenOverlay(onDismiss = { overlayVisible = false })
+                FullscreenOverlay(
+                    onDismiss = {
+                        overlayVisible = false
+                        addFaceCameraOpen.value = false
+                        startServiceIfNeeded(context, currentSettings.detectionType) // ✅ força re-start
+
+                    },
+                    cameraOpenState = addFaceCameraOpen
+                )
             }
         }
     }

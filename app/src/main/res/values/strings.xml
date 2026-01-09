@@ -25,6 +25,9 @@
     <string name="UserAdded">Save new user</string>
     <string name="confirm_remove">Remove user  %1$s</string>
     <string name="remove">Remove</string>
+    <string name="choose_photos">Choose photos</string>
+    <string name="take_photo">Take Photo</string>
+    <string name="enter_the_person_s_name">Enter the person\'s name</string>
 
 
 </resources>

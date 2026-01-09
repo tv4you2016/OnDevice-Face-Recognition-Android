@@ -136,5 +136,5 @@ class MainActivity : ComponentActivity() {
 }
 
 
-// falta no restore da app quando esta minimizada
+// take the photo
 

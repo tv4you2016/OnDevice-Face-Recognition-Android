@@ -22,8 +22,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Camera
 import androidx.compose.material.icons.filled.Photo
 import androidx.compose.material3.*
@@ -45,11 +43,14 @@ import com.ioline.ithink.ai.presentation.components.AppProgressDialog
 import com.ioline.ithink.ai.presentation.components.hideProgressDialog
 import com.ioline.ithink.ai.presentation.components.showProgressDialog
 import org.koin.androidx.compose.koinViewModel
+import androidx.activity.compose.BackHandler
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddFaceScreen(
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    cameraOpenState: MutableState<Boolean>
 ) {
     val viewModel: AddFaceScreenViewModel = koinViewModel()
 
@@ -74,17 +75,6 @@ fun AddFaceScreen(
                             color = Color.White
                         )
                     },
-                    /*
-                    navigationIcon = {
-                        IconButton(onClick = onNavigateBack) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
-                                tint = Color.White
-                            )
-                        }
-                    },
-                    */
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = Color.Black
                     )
@@ -92,7 +82,7 @@ fun AddFaceScreen(
             }
         ) { innerPadding ->
             Column(modifier = Modifier.padding(innerPadding)) {
-                ScreenUI(viewModel)
+                ScreenUI(viewModel,cameraOpenState)
                 ImageReadProgressDialog(viewModel, onNavigateBack)
             }
         }
@@ -185,7 +175,7 @@ fun CameraScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ScreenUI(viewModel: AddFaceScreenViewModel) {
+private fun ScreenUI(viewModel: AddFaceScreenViewModel, cameraOpenState: MutableState<Boolean>) {
 
     val context = LocalContext.current
     var personName by viewModel.personNameState
@@ -201,7 +191,12 @@ private fun ScreenUI(viewModel: AddFaceScreenViewModel) {
         }
 
     // Controle para exibir a tela da câmera frontal
-    var showCamera by remember { mutableStateOf(false) }
+    var showCamera by cameraOpenState
+
+    // ✅ Quando a câmara está aberta, o BACK fecha a câmara (não navega para trás)
+    BackHandler(enabled = showCamera) {
+        showCamera = false
+    }
 
     BoxWithConstraints(
         modifier = Modifier
@@ -216,6 +211,7 @@ private fun ScreenUI(viewModel: AddFaceScreenViewModel) {
                 .height(totalHeight)
         ) {
             if (showCamera) {
+                // CÂMARA ocupa o ecrã todo
                 CameraScreen(
                     onPhotoCaptured = { uri ->
                         viewModel.selectedImageURIs.value =
@@ -224,147 +220,207 @@ private fun ScreenUI(viewModel: AddFaceScreenViewModel) {
                     }
                 )
             } else {
+                val hasImages = viewModel.selectedImageURIs.value.isNotEmpty()
 
-                // 🔶 CARD PRINCIPAL DO FORMULÁRIO
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, Color.Gray, RoundedCornerShape(16.dp))
-                        .background(Color(0xFF151515), RoundedCornerShape(16.dp))
-                        .padding(16.dp)
-                ) {
-                    // 🔹 Campo de nome sem “3 linhas”
-                    OutlinedTextField(
-                        modifier = Modifier.fillMaxWidth(),
-                        value = personName,
-                        onValueChange = { personName = it },
-                        label = { Text(text = "Enter the person's name") },
-                        singleLine = true,
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color.Black,
-                            unfocusedContainerColor = Color.Black,
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedIndicatorColor = colorResource(id = R.color.md_orange),
-                            unfocusedIndicatorColor = Color.Gray,
-                            focusedLabelColor = Color.White,
-                            unfocusedLabelColor = Color.LightGray,
-                            cursorColor = Color.White
-                        ),
-                        shape = RoundedCornerShape(12.dp)
+                if (!hasImages) {
+                    // SEM FOTOS: formulário ocupa o ecrã todo
+                    AddFaceForm(
+                        viewModel = viewModel,
+                        personName = personName,
+                        onPersonNameChange = { personName = it },
+                        onPickPhotos = {
+                            focusManager.clearFocus()
+                            keyboardController?.hide()
+                            pickVisualMediaLauncher.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                            )
+                        },
+                        onOpenCamera = {
+                            focusManager.clearFocus()
+                            keyboardController?.hide()
+                            showCamera = true
+                        },
+                        onAddUser = {
+                            focusManager.clearFocus()
+                            keyboardController?.hide()
+                            viewModel.addImages()
+                        }
                     )
 
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    val canInteract = personName.isNotEmpty()
-
-                    // 🔹 Botões Choose / Take
+                    // (não mostra grelha)
+                } else {
+                    // COM FOTOS: duas colunas lado a lado  | formulário | fotos |
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Button(
-                            enabled = canInteract,
-                            onClick = {
-                                focusManager.clearFocus()
-                                keyboardController?.hide()
-                                pickVisualMediaLauncher.launch(
-                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                )
-                            },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(999.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = colorResource(id = R.color.md_orange),
-                                contentColor = Color.Black,
-                                disabledContainerColor = Color.Gray,
-                                disabledContentColor = Color.LightGray
-                            )
+                        // ESQUERDA: formulário
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Photo,
-                                contentDescription = "Choose photos"
+                            AddFaceForm(
+                                viewModel = viewModel,
+                                personName = personName,
+                                onPersonNameChange = { personName = it },
+                                onPickPhotos = {
+                                    focusManager.clearFocus()
+                                    keyboardController?.hide()
+                                    pickVisualMediaLauncher.launch(
+                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                    )
+                                },
+                                onOpenCamera = {
+                                    focusManager.clearFocus()
+                                    keyboardController?.hide()
+                                    showCamera = true
+                                },
+                                onAddUser = {
+                                    focusManager.clearFocus()
+                                    keyboardController?.hide()
+                                    viewModel.addImages()
+                                }
                             )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(text = "Choose photos")
                         }
 
-                        Button(
-                            enabled = canInteract,
-                            onClick = {
-                                focusManager.clearFocus()
-                                keyboardController?.hide()
-                                showCamera = true
-                            },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(999.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = colorResource(id = R.color.md_orange),
-                                contentColor = Color.Black,
-                                disabledContainerColor = Color.Gray,
-                                disabledContentColor = Color.LightGray
-                            )
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Camera,
-                                contentDescription = "Take Photo"
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(text = "Take Photo")
-                        }
-                    }
-
-                    // 🔹 Botão “Add User” aparece só se houver imagens
-                    val hasImages = viewModel.selectedImageURIs.value.isNotEmpty()
-                    if (hasImages) {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(
-                            onClick = {
-                                focusManager.clearFocus()
-                                keyboardController?.hide()
-                                viewModel.addImages()
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(999.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = colorResource(id = R.color.md_orange),
-                                contentColor = Color.Black,
-                                disabledContainerColor = Color.Gray,
-                                disabledContentColor = Color.LightGray
-                            )
-                        ) {
-                            /*
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = "Add photos"
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            */
-                            Text(text = stringResource(id = R.string.UserAdded))
-
-                        }
+                        // DIREITA: fotos
+                        ImagesGrid(
+                            viewModel = viewModel,
+                            columns = 3, // 👈 menos colunas porque está estreito
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                        )
                     }
                 }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                ImagesGrid(
-                    viewModel = viewModel,
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                )
             }
         }
     }
 }
 
 @Composable
-private fun ImagesGrid(viewModel: AddFaceScreenViewModel, modifier: Modifier = Modifier) {
+private fun AddFaceForm(
+    viewModel: AddFaceScreenViewModel,
+    personName: String,
+    onPersonNameChange: (String) -> Unit,
+    onPickPhotos: () -> Unit,
+    onOpenCamera: () -> Unit,
+    onAddUser: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, Color.Gray, RoundedCornerShape(16.dp))
+            .background(Color(0xFF151515), RoundedCornerShape(16.dp))
+            .padding(16.dp)
+    ) {
+        OutlinedTextField(
+            modifier = Modifier.fillMaxWidth(),
+            value = personName,
+            onValueChange = onPersonNameChange,
+            label = {
+                Text(
+                    text = stringResource(R.string.enter_the_person_s_name)
+                )
+            },
+            singleLine = true,
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = Color.Black,
+                unfocusedContainerColor = Color.Black,
+                focusedTextColor = Color.White,
+                unfocusedTextColor = Color.White,
+                focusedIndicatorColor = colorResource(id = R.color.md_orange),
+                unfocusedIndicatorColor = Color.Gray,
+                focusedLabelColor = Color.White,
+                unfocusedLabelColor = Color.LightGray,
+                cursorColor = Color.White
+            ),
+            shape = RoundedCornerShape(12.dp)
+        )
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        val canInteract = personName.isNotEmpty()
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Button(
+                enabled = canInteract,
+                onClick = onPickPhotos,
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(999.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = colorResource(id = R.color.md_orange),
+                    contentColor = Color.Black,
+                    disabledContainerColor = Color.Gray,
+                    disabledContentColor = Color.LightGray
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Photo,
+                    contentDescription = stringResource(R.string.choose_photos)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(text = stringResource(R.string.choose_photos))
+            }
+
+            Button(
+                enabled = canInteract,
+                onClick = onOpenCamera,
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(999.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = colorResource(id = R.color.md_orange),
+                    contentColor = Color.Black,
+                    disabledContainerColor = Color.Gray,
+                    disabledContentColor = Color.LightGray
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Camera,
+                    contentDescription = stringResource(R.string.take_photo)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(text = stringResource(R.string.take_photo))
+            }
+        }
+
+        val hasImages = viewModel.selectedImageURIs.value.isNotEmpty()
+        if (hasImages) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = onAddUser,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(999.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = colorResource(id = R.color.md_orange),
+                    contentColor = Color.Black,
+                    disabledContainerColor = Color.Gray,
+                    disabledContentColor = Color.LightGray
+                )
+            ) {
+                Text(text = stringResource(id = R.string.UserAdded))
+            }
+        }
+    }
+}
+
+
+@Composable
+private fun ImagesGrid(
+    viewModel: AddFaceScreenViewModel,
+    columns: Int,
+    modifier: Modifier = Modifier
+) {
     val uris by viewModel.selectedImageURIs
 
     LazyVerticalGrid(
-        columns = GridCells.Fixed(4),
+        columns = GridCells.Fixed(columns),
         modifier = modifier.fillMaxSize(),
         userScrollEnabled = true
     ) {

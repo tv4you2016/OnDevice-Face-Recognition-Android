@@ -61,6 +61,7 @@ class FaceDetectionService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        Log.d("FaceDetectionService", "onCreate")
         startForegroundService()
         startCamera()
     }
@@ -178,6 +179,8 @@ class FaceDetectionService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        Log.d("FaceDetectionService", "onDestroy")
+
 
         // 🔹 Fecha a câmera ao parar o serviço
         cameraProvider?.unbindAll()
