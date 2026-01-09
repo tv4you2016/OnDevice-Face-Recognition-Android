@@ -32,6 +32,7 @@ import kotlinx.coroutines.flow.first
 class FaceDetectionService : Service() {
 
 
+    private val cameraExecutor = Executors.newSingleThreadExecutor()
 
     private val settingsStore by lazy { SettingsDataStore(this) }
 
@@ -58,6 +59,9 @@ class FaceDetectionService : Service() {
 
 
     companion object {
+        private const val ACTION_FACE_READY = "com.ioline.ithink.ai.action.FACE_READY"
+
+
         private const val ACTION_PAUSE_CAMERA = "com.ioline.ithink.ai.action.PAUSE_FACE_CAMERA"
         private const val ACTION_RESUME_CAMERA = "com.ioline.ithink.ai.action.RESUME_FACE_CAMERA"
 
@@ -78,9 +82,18 @@ class FaceDetectionService : Service() {
         }
     }
 
+    private fun notifyReady() {
+        sendBroadcast(Intent(ACTION_FACE_READY))
+        Log.d("FaceDetectionService", "READY broadcast sent")
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_PAUSE_CAMERA -> cameraProvider?.unbindAll()
+            ACTION_PAUSE_CAMERA -> {
+                cameraProvider?.unbindAll()
+                isProcessing = false
+                isImageTransformInitialized = false
+            }
             ACTION_RESUME_CAMERA -> startCamera()
         }
         return START_STICKY
@@ -128,10 +141,16 @@ class FaceDetectionService : Service() {
                 .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
                 .build()
 
-            frameAnalyzer.setAnalyzer(Executors.newSingleThreadExecutor(), analyzer)
+            frameAnalyzer.setAnalyzer(cameraExecutor, analyzer)
 
             cameraProvider?.unbindAll()
-            cameraProvider?.bindToLifecycle(/* lifecycleOwner = */ FakeLifecycleOwner(), cameraSelector, frameAnalyzer)
+            try {
+                cameraProvider?.bindToLifecycle(FakeLifecycleOwner(), cameraSelector, frameAnalyzer)
+                notifyReady()
+            } catch (t: Throwable) {
+                Log.e("FaceDetectionService", "bindToLifecycle failed", t)
+                notifyReady() // ou manda outra action de erro
+            }
         }, executor)
 
     }
@@ -172,7 +191,7 @@ class FaceDetectionService : Service() {
                 Log.i("IOLine", "Detectado: $personName")
 
                 //openlockNowApp(applicationContext)
-                if (personName.isEmpty() || personName != "Not recognized") {
+                if (personName.isNotEmpty() && personName != "Not recognized") {
                     // --- Abrir app se OpeniThink estiver true ---
                     CoroutineScope(Dispatchers.Main).launch {
 
@@ -212,6 +231,7 @@ class FaceDetectionService : Service() {
         // 🔹 Fecha a câmera ao parar o serviço
         cameraProvider?.unbindAll()
         cameraProvider = null
+        cameraExecutor.shutdown()
 
         stopForeground(STOP_FOREGROUND_REMOVE)
         coroutineScope.cancel()

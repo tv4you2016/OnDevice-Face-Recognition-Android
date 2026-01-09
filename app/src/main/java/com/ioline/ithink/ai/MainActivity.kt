@@ -7,6 +7,8 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.annotation.OptIn
+import androidx.camera.core.ExperimentalGetImage
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.ui.platform.LocalContext
@@ -67,7 +69,6 @@ class MainActivity : ComponentActivity() {
                         val context = LocalContext.current
 
 
-                        //checkForUpdates(context,false)
                         scheduleDailyUpdateCheck(context)
 
 
@@ -124,6 +125,7 @@ class MainActivity : ComponentActivity() {
     }
 
 
+    @OptIn(ExperimentalGetImage::class)
     override fun onResume() {
         super.onResume()
         // Código aqui

@@ -43,8 +43,10 @@ import kotlinx.coroutines.launch
 
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.ui.res.stringResource
+import androidx.core.content.ContextCompat
 import com.ioline.ithink.ai.AppUtils
 import com.ioline.ithink.ai.AppUtils.openTargetAppSafe
+import com.ioline.ithink.ai.SplashScreen
 import com.ioline.ithink.ai.WakeLock
 
 
@@ -134,8 +136,11 @@ fun SettingItem(
     iconImage: ImageVector,
     onAddFaceClick: () -> Unit,
     expandedOption: Option?,
-    onExpandChange: (Option?) -> Unit
-) {
+    onExpandChange: (Option?) -> Unit,
+    isFaceLoading: Boolean,
+    setFaceLoading: (Boolean) -> Unit
+
+    ) {
     val isExpandable = option == Option.FacialDetection || option == Option.CameraDetection
     val isExpanded = isExpandable && expandedOption == option
 
@@ -205,7 +210,11 @@ fun SettingItem(
             SettingItemContent(
                 option = option,
                 description = description,
-                onAddFaceClick = onAddFaceClick
+                onAddFaceClick = onAddFaceClick,
+                isFaceLoading = isFaceLoading,
+                setFaceLoading = setFaceLoading
+
+
             )
         }
     }
@@ -254,7 +263,10 @@ fun SectionTitle(title: String) {
 private fun SettingItemContent(
     option: Option,
     description: String?,
-    onAddFaceClick: () -> Unit
+    onAddFaceClick: () -> Unit,
+    isFaceLoading: Boolean,
+    setFaceLoading: (Boolean) -> Unit
+
 ) {
     // ❌ Sem DataStore aqui
     // ❌ Sem AppUtils.startLoading aqui
@@ -272,9 +284,19 @@ private fun SettingItemContent(
             }
 
             Option.FacialDetection -> {
-                FaceListScreen(
-                    onAddFaceClick = onAddFaceClick,
-                )
+                var renderFaceList by remember { mutableStateOf(false) }
+
+                // Quando entra no FacialDetection, liga o loading e só compõe o FaceList depois de 1 frame
+                LaunchedEffect(Unit) {
+                    setFaceLoading(true)
+                    renderFaceList = false
+                    kotlinx.coroutines.yield()   // dá 1 frame para desenhar o Splash
+                    renderFaceList = true
+                }
+
+                if (renderFaceList && !isFaceLoading) {
+                    FaceListScreen(onAddFaceClick = onAddFaceClick)
+                }
             }
 
             Option.None -> {
@@ -334,6 +356,8 @@ fun MainLayout(
         currentSettings = settings
     }
 
+    var isFaceLoading by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     var overlayVisible by remember { mutableStateOf(false) }
     var expandedOption by remember { mutableStateOf<Option?>(currentSettings.detectionType) }
     val addFaceCameraOpen = remember { mutableStateOf(false) }
@@ -341,6 +365,28 @@ fun MainLayout(
 
     val coroutineScope = rememberCoroutineScope()
     val listState = rememberLazyListState()
+
+    DisposableEffect(Unit) {
+        val receiver = object : android.content.BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.action == "com.ioline.ithink.ai.action.FACE_READY") {
+                    isFaceLoading = false
+                    Log.d("MainLayout", "Face READY received -> hide loading")
+                }
+            }
+        }
+
+        val filter = android.content.IntentFilter("com.ioline.ithink.ai.action.FACE_READY")
+        ContextCompat.registerReceiver(
+            context,
+            receiver,
+            filter,
+            ContextCompat.RECEIVER_EXPORTED
+        )
+
+        onDispose { context.unregisterReceiver(receiver) }
+    }
+
 
     // Sempre que detectionType mudar -> garante serviço correto
     LaunchedEffect(currentSettings.detectionType) {
@@ -396,8 +442,8 @@ fun MainLayout(
                     onClick = {
                         coroutineScope.launch {
                             startServiceIfNeeded(context, currentSettings.detectionType)
-/*
-                            delay(1000) // ✅ agora funciona
+
+
 
                             AppUtils.startLoading(context, "openTargetApp")
                             try {
@@ -408,7 +454,7 @@ fun MainLayout(
                                 AppUtils.stopLoading(context, "openTargetApp")
                             }
 
- */
+
                         }
                     },
                     colors = NavigationBarItemDefaults.colors(
@@ -432,7 +478,7 @@ fun MainLayout(
                     .fillMaxSize(),
                 contentPadding = PaddingValues(bottom = 40.dp)
             ) {
-                item { SectionTitle(stringResource(id = R.string.DetectionType),) }
+                item { SectionTitle(stringResource(id = R.string.DetectionType)) }
 
                 itemsIndexed(settingsOptions) { index, option ->
                     val isEnabled = currentSettings.detectionType == option
@@ -454,12 +500,25 @@ fun MainLayout(
                         onToggleChange = { checked ->
                             if (checked) {
                                 coroutineScope.launch {
+                                    if (option == Option.FacialDetection && currentSettings.detectionType != Option.FacialDetection) {
+                                        isFaceLoading = true
+
+                                        // safety timeout (não fica preso se houver erro)
+                                        scope.launch {
+                                            kotlinx.coroutines.delay(6000)
+                                            if (isFaceLoading) isFaceLoading = false
+                                        }
+                                    }
+
                                     val updated = currentSettings.copy(
                                         detectionType = option,
                                         // aqui tratamos também do openApk = false
                                         OpeniThink = currentSettings.OpeniThink.copy(openApk = false)
                                     )
-                                    settingsStore.saveSettings(updated)
+                                    scope.launch {
+                                        kotlinx.coroutines.yield()
+                                        settingsStore.saveSettings(updated)
+                                    }
                                 }
 
                                 expandedOption = if (option == Option.None) null else option
@@ -473,7 +532,10 @@ fun MainLayout(
                         onAddFaceClick = {
                             if (option == Option.FacialDetection) overlayVisible = true
                         },
-                        onExpandChange = { /* podemos ignorar ou implementar depois */ }
+                        onExpandChange = { /* podemos ignorar ou implementar depois */ },
+                        isFaceLoading = isFaceLoading,
+                        setFaceLoading = { isFaceLoading = it },
+
                     )
                 }
             }
@@ -488,6 +550,10 @@ fun MainLayout(
                     },
                     cameraOpenState = addFaceCameraOpen
                 )
+            }
+
+            if (isFaceLoading) {
+                SplashScreen()
             }
         }
     }
