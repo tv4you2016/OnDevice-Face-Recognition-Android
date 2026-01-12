@@ -444,6 +444,10 @@ fun MainLayout(
                             startServiceIfNeeded(context, currentSettings.detectionType)
 
 
+                            val updated = currentSettings.copy(
+                                OpeniThink = currentSettings.OpeniThink.copy(openApk = true)
+                            )
+                            settingsStore.saveSettings(updated)
 
                             AppUtils.startLoading(context, "openTargetApp")
                             try {

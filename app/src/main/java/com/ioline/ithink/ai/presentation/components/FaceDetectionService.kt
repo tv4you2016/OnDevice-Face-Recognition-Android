@@ -192,6 +192,7 @@ class FaceDetectionService : Service() {
 
                 //openlockNowApp(applicationContext)
                 if (personName.isNotEmpty() && personName != "Not recognized") {
+
                     // --- Abrir app se OpeniThink estiver true ---
                     CoroutineScope(Dispatchers.Main).launch {
 
