@@ -349,7 +349,9 @@ fun MainLayout(
     val settings by settingsStore.settingsFlow.collectAsState(initial = initialSettings)
     var currentSettings by remember { mutableStateOf(settings) }
 
-
+    val versionName = context.packageManager
+        .getPackageInfo(context.packageName, 0)
+        .versionName
 
 
     LaunchedEffect(settings) {
@@ -404,6 +406,12 @@ fun MainLayout(
                             "Mordomus Tavo",
                             color = Color.White,
                             fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Ver: $versionName",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+
                         )
                     }
                 },
