@@ -42,6 +42,8 @@ import kotlinx.coroutines.launch
 
 
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.IconButton
 import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
 import com.ioline.ithink.ai.AppUtils
@@ -58,7 +60,9 @@ import com.ioline.ithink.ai.settingsdatastore.AppSettings
 import com.ioline.ithink.ai.presentation.components.ProximityService
 import com.ioline.ithink.ai.presentation.components.CameraService
 import com.ioline.ithink.ai.presentation.components.FaceDetectionService
-import kotlinx.coroutines.delay
+
+import android.provider.Settings
+
 
 // APP UTILS
 // Definindo as opções disponíveis
@@ -432,7 +436,22 @@ fun MainLayout(
                             )
                         }
                     }
+                    if (!overlayVisible) {
+                        IconButton(onClick = {
+                            context.startActivity(
+                                Intent(Settings.ACTION_SETTINGS)
+                            )
+                        }) {
+                            Icon(
+                                imageVector = Icons.Filled.Settings,
+                                contentDescription = "System Settings",
+                                tint = Color.White
+                            )
+                        }
+                    }
                 }
+
+
             )
         },
         bottomBar = {

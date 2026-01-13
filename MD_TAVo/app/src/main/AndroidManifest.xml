@@ -5,38 +5,40 @@
     <uses-feature
         android:name="android.hardware.camera"
         android:required="true" />
+
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
-    <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-    <uses-permission android:name="android.permission.SYSTEM_CAMERA" />
 
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
-    <uses-permission android:name="android.permission.ACTION_MANAGE_OVERLAY_PERMISSION"/>
     <uses-permission android:name="android.permission.TURN_SCREEN_ON"/>
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
+    <!-- Android <= 32 -->
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32"/>
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32"/>
 
-    <!-- Para Android <= 32 -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
-
-    <!-- Para Android >= 33 -->
+    <!-- Android >= 33 -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
 
-    <uses-permission android:name="android.permission.DEVICE_POWER" tools:ignore="ProtectedPermissions" />
+    <uses-permission
+        android:name="android.permission.DEVICE_POWER"
+        tools:ignore="ProtectedPermissions" />
 
     <queries>
-        <!-- Para permitir procurar este app -->
         <package android:name="app.ioline.ithink" />
     </queries>
 
@@ -53,8 +55,8 @@
         android:theme="@style/Theme.FaceNetAndroid"
         tools:targetApi="31"
         android:usesCleartextTraffic="true">
-        >
 
+        <!-- FileProvider (deixa só 1x) -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.provider"
@@ -69,8 +71,7 @@
             android:name=".PeriodicAppLauncherService"
             android:enabled="true"
             android:exported="true"
-            android:foregroundServiceType="dataSync"
-            />
+            android:foregroundServiceType="dataSync" />
 
         <service
             android:name=".presentation.components.ProximityService"
@@ -90,75 +91,56 @@
             android:exported="true"
             android:foregroundServiceType="camera" />
 
-
+        <!-- ✅ MainActivity como LAUNCHER + HOME -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.FaceNetAndroid"
             android:screenOrientation="landscape">
+
+            <!-- Aparece na lista de apps -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- ✅ Torna-se "Launcher/Home" -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
-                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
-        </activity>
 
+        </activity>
 
         <activity
             android:name=".UpdateChecker.UpdaterActivity"
             android:exported="false"
             android:showWhenLocked="true"
             android:turnScreenOn="true"
-            android:excludeFromRecents="true"
+            android:excludeFromRecents="true" />
 
-            />
+        <receiver
+            android:name=".UpdateChecker.ApkInstallReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.PACKAGE_ADDED" />
+                <data android:scheme="package"/>
+            </intent-filter>
+        </receiver>
 
-        <!--
-                <receiver
-                    android:name=".MyDeviceAdminReceiver"
-                    android:exported="true"
-                    android:permission="android.permission.BIND_DEVICE_ADMIN">
-                    <meta-data
-                        android:name="android.app.device_admin"
-                        android:resource="@xml/device_admin_receiver" />
-                    <intent-filter>
-                        <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
-                    </intent-filter>
-                </receiver>
-      -->
+        <receiver
+            android:name=".BootReceiver"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.RECEIVE_BOOT_COMPLETED">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
 
-                <receiver android:name=".UpdateChecker.ApkInstallReceiver"
-                    android:exported="true">
-                    <intent-filter>
-                        <action android:name="android.intent.action.PACKAGE_ADDED" />
-                        <data android:scheme="package"/>
-                    </intent-filter>
-                </receiver>
-
-                <receiver
-                    android:name=".BootReceiver"
-                    android:enabled="true"
-                    android:exported="true"
-                    android:permission="android.permission.RECEIVE_BOOT_COMPLETED">
-                    <intent-filter>
-                        <action android:name="android.intent.action.BOOT_COMPLETED" />
-                        <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
-                    </intent-filter>
-                </receiver>
-
-                <provider
-                    android:name="androidx.core.content.FileProvider"
-                    android:authorities="${applicationId}.provider"
-                    android:exported="false"
-                    android:grantUriPermissions="true">
-                    <meta-data
-                        android:name="android.support.FILE_PROVIDER_PATHS"
-                        android:resource="@xml/file_paths" />
-                </provider>
-
-            </application>
-
-
-
-        </manifest>
+    </application>
+</manifest>

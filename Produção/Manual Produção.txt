@@ -1,0 +1,103 @@
+Guia Rápido de Instalação – Tablet (Produção)
+
+⚠️ Importante: Não remover a película do ecrã
+
+1️⃣ Configuração Inicial
+
+Idioma: Português (Portugal)
+
+Rede móvel: Ignorar
+
+Wi-Fi: IOLineGuests
+
+Copiar apps e dados: Não copiar
+
+Utilizador: Adulto
+
+Iniciar sessão Google: Ignorar
+
+Serviços Google: Aceitar
+
+Navegador / motor de pesquisa: Google Chrome (Predefinir)
+
+PIN: Ignorar
+
+Aguardar arranque completo
+
+2️⃣ Atualizações
+
+Definições → Sistema → Atualizações do sistema
+
+Atualizar tudo
+
+Reiniciar o tablet
+
+Continuar apenas após reboot
+
+3️⃣ Limpeza Inicial
+
+Desinstalar:
+
+Netflix
+
+Remover todas as apps do ecrã principal
+
+4️⃣ Instalação da APK
+
+Ligar tablet ao PC
+
+USB: Transferência de ficheiros
+
+Copiar mordomus_tavo_1.0.0.apk para:
+
+Armazenamento interno / Download
+
+Origem:
+
+\\192.168.0.5\Software\MD_Tavo
+
+5️⃣ Instalar Mordomus Tavo
+
+Abrir Files by Google
+
+Notificações: Não permitir
+
+Transferências → instalar APK
+
+Permitir instalação desta fonte
+
+Instalar app
+
+6️⃣ Configurações do Tablet
+
+Colocar ícone da app no ecrã principal
+
+Ativar:
+
+Rotação automática
+
+Tempo de ecrã: 1 minuto
+
+7️⃣ Permissões da App
+
+Câmara/microfone: Enquanto a app está em uso
+
+Fotos e vídeos: Permitir todos
+
+Apps desconhecidas: Ativar
+
+Sobrepor a outras apps: Ativar
+
+Execução em segundo plano: Permitir
+
+8️⃣ Verificação Final
+
+Abrir app → confirmar:
+
+Detection Type: None
+
+Reiniciar tablet
+
+Confirmar que a app arranca automaticamente
+
+⏳ Nota: O arranque inicial pode demorar alguns minutos.
