@@ -22,6 +22,7 @@ import org.koin.android.ext.android.inject
 import java.util.concurrent.Executors
 import androidx.core.graphics.createBitmap
 import com.ioline.ithink.ai.AppUtils.openTargetAppSafe
+import com.ioline.ithink.ai.WakeLock
 import com.ioline.ithink.ai.settingsdatastore.SettingsDataStore
 import kotlinx.coroutines.flow.first
 
@@ -181,37 +182,40 @@ class FaceDetectionService : Service() {
             val (metrics, results) = imageVectorUseCase.getNearestPersonName(rotatedBitmap, false)
 
             results.forEach { (name, _, spoofResult) ->
-                var personName = name
+
                 val numPeople = personUseCase.getCount()
-                if (numPeople.toInt() == 0) personName = ""
-                if (spoofResult != null && spoofResult.isSpoof) {
-                    personName = "$personName (Spoof: ${spoofResult.score})"
+
+                val originalName = if (numPeople.toInt() == 0) "" else name
+                val isRecognized = originalName.isNotEmpty() && originalName != "Not recognized"
+                val isSpoof = spoofResult?.isSpoof == true
+
+                // Só para log (não mexe na lógica)
+                val logName = if (isSpoof) {
+                    "$originalName (Spoof: ${spoofResult?.score})"
+                } else {
+                    originalName
                 }
 
-                Log.i("IOLine", "Detectado: $personName")
+                Log.i("IOLine", "Detectado: $logName")
 
-                //openlockNowApp(applicationContext)
-                if (personName.isNotEmpty() && personName != "Not recognized") {
+                // 🔥 REGRA FINAL
+                if (isRecognized && !isSpoof) {
 
-                    // --- Abrir app se OpeniThink estiver true ---
-                    CoroutineScope(Dispatchers.Main).launch {
-
-                        // Depois (correto)
+                    coroutineScope.launch(Dispatchers.Main) {
                         val openiThink = settingsStore.settingsFlow.first().OpeniThink.openApk
-                        
+
                         if (openiThink && !hasOpenedTargetApp) {
-                            hasOpenedTargetApp = true // evita múltiplos opens
+                            hasOpenedTargetApp = true
+                            WakeLock().wakeUpScreen(applicationContext)
+
                             openTargetAppSafe(this@FaceDetectionService, "app.ioline.ithink")
 
-
-                            // Opcional: reset da flag após alguns segundos se quiser permitir reabertura
-                            launch(Dispatchers.Main) {
-                                kotlinx.coroutines.delay(5000) // 5s
+                            launch {
+                                delay(5000)
                                 hasOpenedTargetApp = false
                             }
                         }
                     }
-
                 }
             }
 

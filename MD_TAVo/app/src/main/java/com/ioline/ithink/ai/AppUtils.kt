@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.content.ContextCompat.getSystemService
 import androidx.core.content.ContextCompat.registerReceiver
 import com.ioline.ithink.ai.presentation.components.AppLoading
 import kotlinx.coroutines.launch
@@ -144,63 +145,6 @@ object AppUtils {
         }
     }
 
-    fun openTargetAppDelay(context: Context, wakeLock: Boolean) {
-        if (wakeLock) {
-            WakeLock().wakeUpScreen(context)
-            WakeLock().unlockScreen(context)
-        }
-
-        Log.d("AppUtils", "WakeLock: $wakeLock")
-
-        Handler(Looper.getMainLooper()).postDelayed({
-            val launchIntent = context.packageManager.getLaunchIntentForPackage("app.ioline.ithink")
-            if (launchIntent != null) {
-                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                try {
-                    context.startActivity(launchIntent)
-                } catch (e: Exception) {
-                    Log.e("AppUtils", "Erro ao abrir o app", e)
-                }
-            } else {
-                Log.e("AppUtils", "App não instalado ou sem Activity principal")
-            }
-        }, 1500)
-    }
-
-    fun openlockNowApp(context: Context) {
-
-
-        val dpm = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
-        val componentName = ComponentName(context, MyDeviceAdminReceiver::class.java)
-
-        if (dpm.isAdminActive(componentName)) {
-
-            Handler(Looper.getMainLooper()).postDelayed({
-                dpm.lockNow() // 🔒 desliga o ecrã
-            }, 10000) // delay de 2 segundos para desligar o ecra
-
-        } else {
-            Log.e("ScreenControl", "Device Admin não está ativo.")
-        }
-
-    }
-
-    fun hasProximitySensor(context: Context): Boolean {
-
-
-        val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
-
-
-        val sensors = sensorManager.getSensorList(Sensor.TYPE_ALL)
-        /*
-        for (s in sensors) {
-            Log.d("SensorList", "🔹 ${s.name} (${s.type}) range=${s?.maximumRange}")
-        }
-        */
-        val sensor = sensorManager.getDefaultSensor(Sensor.TYPE_PROXIMITY)
-        return sensor != null && sensor.maximumRange > 0
-    }
-
     @Composable
     fun getProximitySensorInfo(context: Context): Triple<String?, String?, Float?> {
         val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
@@ -223,45 +167,6 @@ object AppUtils {
 
 
 
-    @Composable
-    fun GlobalLoadingController(): State<Boolean> {
-        val context = LocalContext.current
-        val loadingState = remember { mutableStateOf(false) }
-
-
-        DisposableEffect(Unit) {
-            val receiver = object : BroadcastReceiver() {
-                override fun onReceive(ctx: Context?, intent: Intent?) {
-                    if (intent?.action == "GLOBAL_LOADING_UPDATE") {
-                        val isLoading = intent.getBooleanExtra("loading", false)
-                        loadingState.value = isLoading
-                    }
-                }
-            }
-
-            val filter = IntentFilter("GLOBAL_LOADING_UPDATE")
-            registerReceiver(context, receiver, filter, ContextCompat.RECEIVER_EXPORTED)
-
-            onDispose {
-                context.unregisterReceiver(receiver)
-            }
-        }
-
-        return loadingState
-    }
-
-
-    @Composable
-    fun LoadingScreen() {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black),
-            contentAlignment = Alignment.Center
-        ) {
-            AppLoading(size = 80.dp)
-        }
-    }
 
     fun startLoading(context: Context , local : String) {
 
@@ -278,4 +183,7 @@ object AppUtils {
         intent.putExtra("loading", false)
         context.sendBroadcast(intent)
     }
+
+
+
 }

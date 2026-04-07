@@ -8,14 +8,16 @@ import android.util.Log
 class WakeLock {
     fun wakeUpScreen(context: Context) {
         val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-        if (!powerManager.isInteractive) {
-            val wakeLock = powerManager.newWakeLock(
-                PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
-                "wakeupmd::WakeLockTag"
-            )
-            wakeLock.acquire(3000)
-            wakeLock.release()
-        }
+
+        val wakeLock = powerManager.newWakeLock(
+            PowerManager.FULL_WAKE_LOCK or
+                    PowerManager.ACQUIRE_CAUSES_WAKEUP or
+                    PowerManager.ON_AFTER_RELEASE,
+            "ithink:wakelock"
+        )
+
+        wakeLock.acquire(3000) // 3 segundos
+        wakeLock.release()
     }
 
     fun isScreenOn(context: Context): Boolean {
