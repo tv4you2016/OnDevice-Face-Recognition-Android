@@ -1,10 +1,14 @@
 package com.ioline.ithink.ai
 
+import android.app.admin.DevicePolicyManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.MotionEvent
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -16,31 +20,31 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.ioline.ai.PermissionManager
-import com.ioline.ithink.ai.UpdateChecker.UpdateChecker
-import com.ioline.ithink.ai.UpdateChecker.UpdateResult
-import com.ioline.ithink.ai.UpdateChecker.UpdaterActivity
 import com.ioline.ithink.ai.UpdateChecker.scheduleDailyUpdateCheck
 import com.ioline.ithink.ai.presentation.components.CameraService
 import com.ioline.ithink.ai.presentation.components.FaceDetectionService
 import com.ioline.ithink.ai.presentation.components.ProximityService
 import com.ioline.ithink.ai.settingsdatastore.SettingsDataStore
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
-import android.app.admin.DevicePolicyManager
-import android.content.ComponentName
-import android.os.Build
-import android.view.WindowManager
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import androidx.core.content.edit
 
-
-//C:\Users\IOLine\Documents\GitHub\OnDevice-Face-Recognition-Android\app\build\outputs\apk\debug
 class MainActivity : ComponentActivity() {
+
 
     private lateinit var permissionManager: PermissionManager
     private var inactivityJob: Job? = null
+    private var bootFlowHandled = false
 
+    private val settingsStore by lazy {
+        SettingsDataStore(this)
+    }
 
+    private val prefs by lazy {
+        getSharedPreferences("boot_flags", Context.MODE_PRIVATE)
+    }
     private fun lockScreen() {
         val dpm = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
         val component = ComponentName(this, MyDeviceAdminReceiver::class.java)
@@ -70,7 +74,6 @@ class MainActivity : ComponentActivity() {
         return super.dispatchTouchEvent(ev)
     }
 
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -84,25 +87,12 @@ class MainActivity : ComponentActivity() {
             setShowWhenLocked(true)
             setTurnScreenOn(true)
         }
+
         enableEdgeToEdge()
-
-
         WakeLock().unlockScreen(this@MainActivity)
 
-        val openiThinkExtra = intent?.getBooleanExtra("openiThink", false) ?: false
-        val settingsStore = SettingsDataStore(this)
-
-        // Atualiza OpeniThink no DataStore conforme o extra
-        lifecycleScope.launch {
-            if (!openiThinkExtra) {
-                val currentSettings = settingsStore.settingsFlow.first()
-                settingsStore.saveSettings(
-                    currentSettings.copy(
-                        OpeniThink = currentSettings.OpeniThink.copy(openApk = false)
-                    )
-                )
-            }
-        }
+        val pendingBootOpen = prefs.getBoolean("pending_open_ithink_after_boot", false)
+        Log.d("MainActivity", "onCreate | pendingBootOpen=$pendingBootOpen")
 
         permissionManager = PermissionManager(this) {
             setContent {
@@ -114,50 +104,95 @@ class MainActivity : ComponentActivity() {
                 ) {
                     composable("main_layout") {
                         val context = LocalContext.current
-
-
                         scheduleDailyUpdateCheck(context)
-
-
                         MordomusRoot()
-
-
-
-
                     }
                 }
             }
         }
 
         permissionManager.requestAll()
+
+        if (pendingBootOpen) {
+            handleBootFlow(settingsStore, prefs)
+        }
     }
 
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
 
+        val pendingBootOpen = prefs.getBoolean("pending_open_ithink_after_boot", false)
+        Log.d("MainActivity", "onNewIntent | pendingBootOpen=$pendingBootOpen")
 
+        if (pendingBootOpen) {
+            handleBootFlow(settingsStore, prefs)
+        }
+    }
+
+    private fun handleBootFlow(
+        settingsStore: SettingsDataStore,
+        prefs: android.content.SharedPreferences
+    ) {
+        if (bootFlowHandled) {
+            Log.d("MainActivity", "Boot flow já tratado, ignorado")
+            return
+        }
+
+        bootFlowHandled = true
+
+        lifecycleScope.launch {
+            try {
+                val currentSettings = settingsStore.settingsFlow.first()
+                val selectedService = currentSettings.detectionType.toString()
+
+                if (selectedService.equals("none", ignoreCase = true)) {
+                    Log.d("MainActivity", "Serviço = none, não abre app.ioline.ithink")
+                    prefs.edit { putBoolean("pending_open_ithink_after_boot", false) }
+                    return@launch
+                }
+
+                delay(1500)
+
+                val launchIntent = packageManager.getLaunchIntentForPackage("app.ioline.ithink")
+
+                if (launchIntent != null) {
+                    prefs.edit { putBoolean("pending_open_ithink_after_boot", false) }
+
+                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+                    startActivity(launchIntent)
+
+                    Log.d("MainActivity", "app.ioline.ithink aberta após init da app")
+                    finish()
+                } else {
+                    Log.e("MainActivity", "app.ioline.ithink não encontrada")
+                    prefs.edit { putBoolean("pending_open_ithink_after_boot", false) }
+                }
+
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Erro no fluxo de boot", e)
+                prefs.edit { putBoolean("pending_open_ithink_after_boot", false) }
+            }
+        }
+    }
 
     @OptIn(ExperimentalGetImage::class)
     override fun onResume() {
         super.onResume()
         requestDeviceAdmin()
-        // Código aqui
-
 
         if (!AppUtils.isAddUserFlowActive) {
-
             FaceDetectionService.stop(this@MainActivity)
-            this@MainActivity.stopService(Intent(this@MainActivity, CameraService::class.java))
-            this@MainActivity.stopService(Intent(this@MainActivity, ProximityService::class.java))
+            stopService(Intent(this@MainActivity, CameraService::class.java))
+            stopService(Intent(this@MainActivity, ProximityService::class.java))
         }
+
         startInactivityTimer()
     }
 
     override fun onPause() {
         super.onPause()
-        //inactivityJob?.cancel()
-
     }
-
-
 
     private fun requestDeviceAdmin() {
         val component = ComponentName(this, MyDeviceAdminReceiver::class.java)
@@ -166,12 +201,12 @@ class MainActivity : ComponentActivity() {
         if (!dpm.isAdminActive(component)) {
             val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN).apply {
                 putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, component)
-                putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION, "Necessário para desligar o ecrã automaticamente")
+                putExtra(
+                    DevicePolicyManager.EXTRA_ADD_EXPLANATION,
+                    "Necessário para desligar o ecrã automaticamente"
+                )
             }
             startActivity(intent)
         }
     }
 }
-
-
-
