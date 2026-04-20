@@ -91,24 +91,10 @@ object AppUtils {
     }
 
 
-    fun isAppRunning(context: Context, packageName: String): Boolean {
-        val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-        val processes = activityManager.runningAppProcesses
-        val isRunning = processes.any { it.processName == packageName }
-        Log.d("AppUtils", "App $packageName está rodando? $isRunning")
-        return isRunning
-    }
-    
     @OptIn(DelicateCoroutinesApi::class)
     fun openTargetAppSafe(context: Context, packageName: String, wakeLock: Boolean = true) {
-        if (isAppRunning(context, packageName)) {
-            Log.d("AppUtils", "O app $packageName já está rodando, não será aberto novamente.")
-            return
-        }
-
         try {
             if (wakeLock) {
-                // Acorda a tela se necessário
                 WakeLock().wakeUpScreen(context)
                 WakeLock().unlockScreen(context)
             }
@@ -117,15 +103,13 @@ object AppUtils {
             val launchIntent = pm.getLaunchIntentForPackage(packageName)
 
             if (launchIntent != null) {
-                // Garantindo que será executado em nova task
                 launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                launchIntent.addFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
 
-                // Log para debug
                 Log.d("AppUtils", "Tentando abrir app: $packageName")
 
-                // Delay pequeno para garantir que a tela já acordou
                 kotlinx.coroutines.GlobalScope.launch {
-                    kotlinx.coroutines.delay(800) // 800ms funciona na maioria dos dispositivos
+                    kotlinx.coroutines.delay(800)
                     try {
                         context.startActivity(launchIntent)
                         Log.d("AppUtils", "App aberto com sucesso: $packageName")
@@ -134,14 +118,10 @@ object AppUtils {
                     }
                 }
             } else {
-                //Log.e("AppUtils", "App não encontrado ou Activity principal não exportada: $packageName")
-                openPlayStore(context,packageName)
-
+                openPlayStore(context, packageName)
             }
         } catch (e: Exception) {
-            //Log.e("AppUtils", "Erro geral ao tentar abrir app", e)
-            openPlayStore(context,packageName)
-
+            openPlayStore(context, packageName)
         }
     }
 
