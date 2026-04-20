@@ -37,6 +37,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var permissionManager: PermissionManager
     private var inactivityJob: Job? = null
     private var bootFlowHandled = false
+    private var hasResetOpenApk = false
 
     private val settingsStore by lazy {
         SettingsDataStore(this)
@@ -92,6 +93,7 @@ class MainActivity : ComponentActivity() {
         WakeLock().unlockScreen(this@MainActivity)
 
         val pendingBootOpen = prefs.getBoolean("pending_open_ithink_after_boot", false)
+
         Log.d("MainActivity", "onCreate | pendingBootOpen=$pendingBootOpen")
 
         permissionManager = PermissionManager(this) {
@@ -125,7 +127,7 @@ class MainActivity : ComponentActivity() {
         val pendingBootOpen = prefs.getBoolean("pending_open_ithink_after_boot", false)
         Log.d("MainActivity", "onNewIntent | pendingBootOpen=$pendingBootOpen")
 
-        if (pendingBootOpen) {
+        if (pendingBootOpen && !bootFlowHandled) {  // Só executa se não foi tratado
             handleBootFlow(settingsStore, prefs)
         }
     }
@@ -149,8 +151,17 @@ class MainActivity : ComponentActivity() {
                 if (selectedService.equals("none", ignoreCase = true)) {
                     Log.d("MainActivity", "Serviço = none, não abre app.ioline.ithink")
                     prefs.edit { putBoolean("pending_open_ithink_after_boot", false) }
+                    bootFlowHandled = false  // Reset para permitir tentativas futuras
                     return@launch
                 }
+
+                // Salva openApk = true
+                settingsStore.saveSettings(
+                    currentSettings.copy(
+                        OpeniThink = currentSettings.OpeniThink.copy(openApk = true)
+                    )
+                )
+                Log.d("MainActivity", "OpeniThink.openApk salvo como true")
 
                 delay(1500)
 
@@ -158,20 +169,20 @@ class MainActivity : ComponentActivity() {
 
                 if (launchIntent != null) {
                     prefs.edit { putBoolean("pending_open_ithink_after_boot", false) }
-
-                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)  // Mudado de RESET_TASK_IF_NEEDED
                     startActivity(launchIntent)
-
                     Log.d("MainActivity", "app.ioline.ithink aberta após init da app")
-                    finish()
+                    // NÃO chame finish() aqui!
                 } else {
                     Log.e("MainActivity", "app.ioline.ithink não encontrada")
                     prefs.edit { putBoolean("pending_open_ithink_after_boot", false) }
+                    bootFlowHandled = false
                 }
 
             } catch (e: Exception) {
                 Log.e("MainActivity", "Erro no fluxo de boot", e)
                 prefs.edit { putBoolean("pending_open_ithink_after_boot", false) }
+                bootFlowHandled = false
             }
         }
     }
@@ -179,6 +190,26 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalGetImage::class)
     override fun onResume() {
         super.onResume()
+
+        // Só reseta se NÃO estamos em fluxo de boot E o boot já foi concluído
+        val pendingBootOpen = prefs.getBoolean("pending_open_ithink_after_boot", false)
+        val isBootFlowComplete = bootFlowHandled && !pendingBootOpen
+
+        if (isBootFlowComplete && !hasResetOpenApk) {
+            hasResetOpenApk = true
+            lifecycleScope.launch {
+                val currentSettings = settingsStore.settingsFlow.first()
+                if (currentSettings.OpeniThink.openApk) {
+                    settingsStore.saveSettings(
+                        currentSettings.copy(
+                            OpeniThink = currentSettings.OpeniThink.copy(openApk = false)
+                        )
+                    )
+                    Log.d("MainActivity", "OpeniThink.openApk resetado para false após boot completo")
+                }
+            }
+        }
+
         requestDeviceAdmin()
 
         if (!AppUtils.isAddUserFlowActive) {

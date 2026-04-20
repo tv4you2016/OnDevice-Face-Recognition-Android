@@ -21,6 +21,7 @@ import kotlinx.coroutines.*
 import org.koin.android.ext.android.inject
 import java.util.concurrent.Executors
 import androidx.core.graphics.createBitmap
+import com.ioline.ithink.ai.AppUtils
 import com.ioline.ithink.ai.AppUtils.openTargetAppSafe
 import com.ioline.ithink.ai.WakeLock
 import com.ioline.ithink.ai.settingsdatastore.SettingsDataStore
@@ -189,7 +190,6 @@ class FaceDetectionService : Service() {
                 val isRecognized = originalName.isNotEmpty() && originalName != "Not recognized"
                 val isSpoof = spoofResult?.isSpoof == true
 
-                // Só para log (não mexe na lógica)
                 val logName = if (isSpoof) {
                     "$originalName (Spoof: ${spoofResult?.score})"
                 } else {
@@ -198,13 +198,17 @@ class FaceDetectionService : Service() {
 
                 Log.i("IOLine", "Detectado: $logName")
 
-                // 🔥 REGRA FINAL
                 if (isRecognized && !isSpoof) {
-
                     coroutineScope.launch(Dispatchers.Main) {
                         val openiThink = settingsStore.settingsFlow.first().OpeniThink.openApk
+                        val isConfiguringNewFace = AppUtils.isAddUserFlowActive
 
-                        if (openiThink && !hasOpenedTargetApp) {
+                        Log.d(
+                            "IOLine",
+                            "openiThink=$openiThink | isConfiguringNewFace=$isConfiguringNewFace"
+                        )
+
+                        if (openiThink && !isConfiguringNewFace && !hasOpenedTargetApp) {
                             hasOpenedTargetApp = true
                             WakeLock().wakeUpScreen(applicationContext)
 
@@ -214,6 +218,11 @@ class FaceDetectionService : Service() {
                                 delay(5000)
                                 hasOpenedTargetApp = false
                             }
+                        } else {
+                            Log.d(
+                                "IOLine",
+                                "Não abriu app.ioline.ithink | openiThink=$openiThink | isConfiguringNewFace=$isConfiguringNewFace | hasOpenedTargetApp=$hasOpenedTargetApp"
+                            )
                         }
                     }
                 }
